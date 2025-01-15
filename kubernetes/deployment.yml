@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: <Insert App Name>
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: <Insert App Name>
+  template:
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/role: '<Insert App Name>'
+        vault.hashicorp.com/agent-inject-secret-<Insert App Name>: '<Insert secret/secretName>'
+        vault.hashicorp.com/agent-inject-template-<Insert App Name>: |
+          {{- with secret "<Insert secret/secretName>" -}}
+            export SECRET_VARIABLE_NAME="{{ .Data.data.secret_variable_name }}""
+          {{- end }}
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        vault.hashicorp.com/ca-cert: /run/secrets/kubernetes.io/serviceaccount/ca.crt
+      labels:
+        app: <Insert App Name>
+    spec:
+      containers:
+        - image: harbor.k3s.quokka.ninja/library/<Insert App Name>
+          name: <Insert App Name>
+          args: ['/bin/bash', '-c', 'source <Insert /vault/secrets/path/to/secretService> && uvicorn <Insert Sourcode Python filename>:app --host 0.0.0.0 --port 8000 --root-path /api']
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      serviceAccountName: <Insert App Name>

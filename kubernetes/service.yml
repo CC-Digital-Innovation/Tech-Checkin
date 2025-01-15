@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: <Insert App Name>
+spec:
+  selector:
+    app: <Insert App Name>
+  ports:
+    - port: 8000

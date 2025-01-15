@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: <Insert App Name>
+  annotations:
+    traefik.ingress.kubernetes.io/redirect-entry-point: https
+    traefik.ingress.kubernetes.io/redirect-permanent: "true"
+    traefik.ingress.kubernetes.io/rewrite-target: /
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: default-redirect-https@kubernetescrd,default-strip-<Insert desired url endpoint Name>@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+  - host: k3s.quokka.ninja
+    http:
+      paths:
+      - path: /<Insert desired url endpoint Name>
+        pathType: Prefix
+        backend:
+          service:
+            name: <Insert App Name>
+            port:
+              number: 80
