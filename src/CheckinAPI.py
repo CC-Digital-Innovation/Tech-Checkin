@@ -2,15 +2,18 @@ import os
 import secrets
 import sys
 import urllib.parse
+from datetime import datetime
 from pathlib import PurePath
 
 import dotenv
+from apscheduler.job import Job
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import APIKeyHeader
 from geopy.geocoders import GeoNames
 from loguru import logger
+from pydantic import BaseModel
 
 import check_in
 from alt_smartsheet import SmartsheetController
@@ -19,7 +22,7 @@ from alt_smartsheet import SmartsheetController
 dotenv.load_dotenv(PurePath(__file__).with_name('.env'))
 
 #assign environment variables to globals
-API_KEY = os.getenv('SECRET_NAME_FROM_deployment.yml')
+API_KEY = os.getenv('API_KEY')
 
 # logging config
 LOGGING_LEVEL = os.getenv('LOGGING_LEVEL', 'INFO')
@@ -89,4 +92,20 @@ def dailytext(techname: str,
     form_url = f"http://{base_url}/form/{form}?Tech%20Name={techname_url}&Time={time_url}&Location={location_url}&Site%20ID={siteid_url}"
 
     #then Twilio to text above url
-    
+
+class JobView(BaseModel):
+    id: str
+    name: str
+    next_run_time: datetime
+
+    @classmethod
+    def from_job(cls, job: Job):
+        return cls(id=job.id, name=job.name, next_run_time=job.next_run_time)
+
+@checkin.get('/jobs', dependencies=[Depends(authorize)])
+def get_jobs() -> list[JobView]:
+    return [JobView.from_job(job) for job in scheduler.get_jobs()]
+
+@checkin.get('/jobs/{job_id}', dependencies=[Depends(authorize)])
+def get_job(job_id: str) -> JobView:
+    return JobView.from_job(scheduler.get_job(job_id))
