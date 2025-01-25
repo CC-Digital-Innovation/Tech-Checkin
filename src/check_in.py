@@ -51,7 +51,11 @@ def get_1_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames) -> list[tupl
     for row in sheet.get_rows():
         if sheet.get_1_hour_checkbox(row):
             continue  # already checked
-        tech_details = sheet.get_tech_details(row, geolocator)
+        try:
+            tech_details = sheet.get_tech_details(row, geolocator)
+        except ValueError:
+            # ignore error as 24 hour schedule already reports; prevents duplicate
+            continue
         if now > tech_details.appt_datetime or tomorrow < tech_details.appt_datetime:
             continue  # outside of today time range
         rows_to_check.append(((tech_details.appt_datetime - timedelta(hours=1)), tech_details))
