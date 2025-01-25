@@ -2,8 +2,13 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 
 from geopy.geocoders import GeoNames
+from loguru import logger
 from smartsheet import Smartsheet
 from smartsheet.models import Cell, Column, Row
+
+symbols_to_ignore = ['(', ')', '-', ' ', '.', '+']
+prep_translate_table_dict = {symbol: None for symbol in symbols_to_ignore}
+NUMBER_TRANSLATE_TABLE = str.maketrans(prep_translate_table_dict)
 
 
 class Sheet:
@@ -104,7 +109,18 @@ class AllTrackerSheet(Sheet):
         return self.get_cell_by_column_name(row, 'Tech Name(First and Last)').value
 
     def get_tech_contact(self, row: Row) -> str:
-        return self.get_cell_by_column_name(row, 'Tech Phone #').value
+        # query number and remove symbols. Removes leading '+' if there but will add later
+        clean_number = self.get_cell_by_column_name(row, 'Tech Phone #').value.translate(NUMBER_TRANSLATE_TABLE)
+        # ensure US country code
+        if len(clean_number) == 10:
+            number = f'+1{clean_number}'
+        elif len(clean_number) == 11:
+            number = f'+{clean_number}'
+        elif len(clean_number) < 10:
+            raise ValueError(f'Number is too short: {clean_number}')
+        else:
+            raise ValueError(f'Number is too long: {clean_number}')
+        return number
 
     def get_site_id(self, row: Row) -> str:
         return int(self.get_cell_by_column_name(row, 'COMCAST PO').value)

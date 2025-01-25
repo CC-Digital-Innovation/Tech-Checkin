@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 import check_in
 from alt_smartsheet import SmartsheetController
+from sms import TwilioController
 
 #load secrets from environemnt variables defined in deployement
 dotenv.load_dotenv(PurePath(__file__).with_name('.env'))
@@ -41,12 +42,19 @@ N8N_WORKFLOW_ID = os.getenv('N8N_WORKFLOW_ID')
 GEONAMES_USER = os.environ['GEONAMES_USER']
 geolocator = GeoNames(username=GEONAMES_USER)
 
+# initialize twilio client
+TWILIO_ACCOUNT_SID = os.environ['TWILIO_ACCOUNT_SID']
+TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
+TWILIO_FROM = os.environ['TWILIO_FROM']
+ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
+twilio_controller = TwilioController(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, ADMIN_PHONE_NUMBER)
+
 # setup scheduler
 CRONJOB_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_CHECKS'])
 scheduler = BackgroundScheduler()
 # add 24 hour check jobs using crontab expression
-scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}'])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_CHECKS, args=[scheduler, sheet, geolocator])
+scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
+scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller])
 scheduler.start()
 
 #init app - rename with desired app name
