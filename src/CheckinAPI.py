@@ -82,7 +82,38 @@ def form(Tech_Name: str,
         Officetrak: str,
         Other_Correction: str):
     #take above parameters and either correct row in smartsheet and/or @ person in resposible collumn for correction to be made
-    pass
+    comment = f"24 Check in complete, \nHas tech logged in to CC_Email in last 3 days?: {CC_Email}\nHas Tech logged into OfficeTrak in the last 3 days?: {Officetrak}"
+    for row in sheet.get_rows():
+        if sheet.get_site_id(row) == int(Site_ID):
+            if Correct =="Yes":
+                if not sheet.get_24_hour_checkbox(row):
+                    sheet.set_24_hour_checkbox(row, True)
+                #set comment to "24 Hour Check in Complete"
+            elif Correct == "No - Something needs to be corrected":
+                comment = "24 Hour check in needs correcting. "
+                sheet_details = sheet.get_tech_details(row)
+                if sheet_details.tech_name != Tech_Name:
+                    comment= comment + f"Tech needs to be changed to {Tech_Name}."
+                if sheet_details.appt_datetime != Time:
+                    comment= comment + f"Appointment time needs to be changed to {Time}."
+                if sheet_details.address != Location:
+                    comment= comment + f"Address needs to be changed to {Location}."
+                if Other_Correction:
+                    comment = comment + f"Additional Comment from tech: {Other_Correction}"   
+            elif Correct== "No - I don't know the correction yet":
+                comment = "24 Check in had a problem that the automation doesn't handle, please reach out to the tech"
+            discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
+            if discussions:
+                for discussion in discussions:
+                    if discussion.parent_id == row.id:
+                        smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comment)
+                        break
+                    else:
+                        smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)
+                        break
+            else:
+                smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)
+            
 
 #sample post
 @checkin.post('/24hrtext', dependencies=[Depends(authorize)])

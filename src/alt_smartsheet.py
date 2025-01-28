@@ -4,7 +4,7 @@ from datetime import date, datetime, time
 from geopy.geocoders import GeoNames
 from loguru import logger
 from smartsheet import Smartsheet
-from smartsheet.models import Cell, Column, Row
+from smartsheet.models import Cell, Column, Row, Comment, Discussion
 
 symbols_to_ignore = ['(', ')', '-', ' ', '.', '+']
 prep_translate_table_dict = {symbol: None for symbol in symbols_to_ignore}
@@ -146,3 +146,15 @@ class SmartsheetController:
     def update_rows(self, sheet):
         if sheet.row_updates:
             return self.client.Sheets.update_rows(sheet.sheet.id, list(sheet.row_updates.values()))
+        
+    def get_discussions(self, sheet_id):
+        response = self.client.Discussions.get_all_discussions(sheet_id, include_all=True)
+        return response.data
+    
+    def create_discussion_on_row(self, sheet_id, row_id, comment):
+        discuss = Discussion({'comment': Comment({'text' : comment})})
+        self.client.Discussions.create_discussion_on_row(sheet_id, row_id, discuss)
+
+    def create_comment(self, sheet_id, discussion_id, comment):
+        comm = Comment({'text': comment})
+        self.client.Discussions.add_comment_to_discussion(sheet_id, discussion_id, comm)
