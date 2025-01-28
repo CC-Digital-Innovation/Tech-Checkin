@@ -55,6 +55,7 @@ class TechDetails:
     tech_contact: str
     address: str
     appt_datetime: datetime
+    work_market_num: str
 
 
 class AllTrackerSheet(Sheet):
@@ -123,11 +124,15 @@ class AllTrackerSheet(Sheet):
         return number
 
     def get_site_id(self, row: Row) -> str:
-        return int(self.get_cell_by_column_name(row, 'COMCAST PO').value)
+        return self.get_cell_by_column_name(row, 'Primary').value
+    
+    def get_work_market_num_id(self, row: Row) -> str:
+        return self.get_cell_by_column_name(row, 'WORK MARKET #').value
 
     def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
         return TechDetails(
             self.get_site_id(row),
+            self.get_work_market_num_id(row),
             self.get_tech_name(row),
             self.get_tech_contact(row),
             self.get_appt_full_address(row),

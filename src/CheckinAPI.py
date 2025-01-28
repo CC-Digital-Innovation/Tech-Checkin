@@ -80,11 +80,12 @@ def form(Tech_Name: str,
         Correct: str,
         CC_Email: str,
         Officetrak: str,
+        Work_market_num: str,
         Other_Correction: str):
     #take above parameters and either correct row in smartsheet and/or @ person in resposible collumn for correction to be made
     comment = f"24 Check in complete, \nHas tech logged in to CC_Email in last 3 days?: {CC_Email}\nHas Tech logged into OfficeTrak in the last 3 days?: {Officetrak}"
     for row in sheet.get_rows():
-        if sheet.get_site_id(row) == int(Site_ID):
+        if sheet.get_work_market_num_id(row) == Work_market_num:
             if Correct =="Yes":
                 if not sheet.get_24_hour_checkbox(row):
                     sheet.set_24_hour_checkbox(row, True)
@@ -94,6 +95,8 @@ def form(Tech_Name: str,
                 sheet_details = sheet.get_tech_details(row)
                 if sheet_details.tech_name != Tech_Name:
                     comment= comment + f"Tech needs to be changed to {Tech_Name}."
+                if sheet_details.site_id != Site_ID:
+                    comment= comment + f"Site ID needs to be changed to {Site_ID}."
                 if sheet_details.appt_datetime != Time:
                     comment= comment + f"Appointment time needs to be changed to {Time}."
                 if sheet_details.address != Location:
