@@ -112,25 +112,7 @@ def form(Tech_Name: str,
                         smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)
                         break
             else:
-                smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)
-            
-
-#sample post
-@checkin.post('/24hrtext', dependencies=[Depends(authorize)])
-def dailytext(techname: str,
-              location: str,
-              time: str,
-              siteid: str):
-    techname_url = urllib.parse.quote_plus(techname)
-    location_url = urllib.parse.quote_plus(location)
-    time_url = urllib.parse.quote_plus(time)
-    siteid_url = urllib.parse.quote_plus(siteid)
-    base_url = "TBD"
-    form = "secret"
-
-    form_url = f"http://{base_url}/form/{form}?Tech%20Name={techname_url}&Time={time_url}&Location={location_url}&Site%20ID={siteid_url}"
-
-    #then Twilio to text above url
+                smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)           
 
 class JobView(BaseModel):
     id: str
