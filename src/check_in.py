@@ -15,7 +15,8 @@ def build_form(url: str, tech_details: TechDetails):
         'Tech Name': tech_details.tech_name,
         'Time': tech_details.appt_datetime,
         'Location': tech_details.address,
-        'Site ID': tech_details.site_id
+        'Site ID': tech_details.site_id,
+        "Work Number - Please don't change" : tech_details.work_market_num
     }
     return f'{url}?{urllib.parse.urlencode(params, quote_via=urllib.parse.quote)}'
 
