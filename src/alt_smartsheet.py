@@ -131,12 +131,12 @@ class AllTrackerSheet(Sheet):
 
     def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
         return TechDetails(
-            self.get_site_id(row),
-            self.get_work_market_num_id(row),
-            self.get_tech_name(row),
-            self.get_tech_contact(row),
-            self.get_appt_full_address(row),
-            self.get_appt_datetime(row, geolocator)
+            site_id=self.get_site_id(row),
+            tech_name=self.get_tech_name(row),
+            tech_contact=self.get_tech_contact(row),
+            address=self.get_appt_full_address(row),
+            appt_datetime=self.get_appt_datetime(row, geolocator),
+            work_market_num=self.get_work_market_num_id(row)
         )
 
 
