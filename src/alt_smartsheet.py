@@ -1,14 +1,12 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time
 
+import phonenumbers
 from geopy.geocoders import GeoNames
 from loguru import logger
+from phonenumbers import PhoneNumber
 from smartsheet import Smartsheet
-from smartsheet.models import Cell, Column, Row, Comment, Discussion
-
-symbols_to_ignore = ['(', ')', '-', ' ', '.', '+']
-prep_translate_table_dict = {symbol: None for symbol in symbols_to_ignore}
-NUMBER_TRANSLATE_TABLE = str.maketrans(prep_translate_table_dict)
+from smartsheet.models import Cell, Column, Comment, Discussion, Row
 
 
 class Sheet:
@@ -52,7 +50,7 @@ class Sheet:
 class TechDetails:
     site_id: str
     tech_name: str
-    tech_contact: str
+    tech_contact: PhoneNumber
     address: str
     appt_datetime: datetime
     work_market_num: str
@@ -109,25 +107,29 @@ class AllTrackerSheet(Sheet):
     def get_tech_name(self, row: Row) -> str:
         return self.get_cell_by_column_name(row, 'Tech Name(First and Last)').value
 
-    def get_tech_contact(self, row: Row) -> str:
-        # query number and remove symbols. Removes leading '+' if there but will add later
-        clean_number = self.get_cell_by_column_name(row, 'Tech Phone #').value.translate(NUMBER_TRANSLATE_TABLE)
-        # ensure US country code
-        if len(clean_number) == 10:
-            number = f'+1{clean_number}'
-        elif len(clean_number) == 11:
-            number = f'+{clean_number}'
-        elif len(clean_number) < 10:
-            raise ValueError(f'Number is too short: {clean_number}')
-        else:
-            raise ValueError(f'Number is too long: {clean_number}')
-        return number
+    def get_tech_contact(self, row: Row, region: str = 'US') -> str:
+        query = self.get_cell_by_column_name(row, 'Tech Phone #').value
+        if isinstance(query, float):
+            query = int(query)  # cast to int to remove trailing zero
+        num = str(query)  # cast to str as query can be other types
+        try:
+            parsed_num = phonenumbers.parse(num, region)
+        except phonenumbers.NumberParseException as e:
+            msg = f'Error parsing number: {e}'
+            logger.warning(msg)
+            raise ValueError(msg)
+        if not phonenumbers.is_valid_number(parsed_num):
+            msg = f'Number {parsed_num.national_number} is not valid for region {region}.'
+            logger.warning(msg)
+            raise ValueError(msg)
+        return parsed_num
 
     def get_site_id(self, row: Row) -> str:
         return self.get_cell_by_column_name(row, 'Primary').value
     
     def get_work_market_num_id(self, row: Row) -> str:
-        return self.get_cell_by_column_name(row, 'WORK MARKET #').value
+        # cast to int first to remove trailing zero
+        return str(int(self.get_cell_by_column_name(row, 'WORK MARKET #').value))
 
     def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
         return TechDetails(
