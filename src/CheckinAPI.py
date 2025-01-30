@@ -126,10 +126,10 @@ class JobView(BaseModel):
     def from_job(cls, job: Job):
         return cls(id=job.id, name=job.name, next_run_time=job.next_run_time)
 
-@checkin.get('/jobs', dependencies=[Depends(authorize)])
+@checkin.get('/jobs', dependencies=[Depends(authorize)], tags=['Jobs'])
 def get_jobs() -> list[JobView]:
     return [JobView.from_job(job) for job in scheduler.get_jobs()]
 
-@checkin.get('/jobs/{job_id}', dependencies=[Depends(authorize)])
+@checkin.get('/jobs/{job_id}', dependencies=[Depends(authorize)], tags=['Jobs'])
 def get_job(job_id: str) -> JobView:
     return JobView.from_job(scheduler.get_job(job_id))
