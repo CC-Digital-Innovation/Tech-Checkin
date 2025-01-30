@@ -1,7 +1,6 @@
 import os
 import secrets
 import sys
-import urllib.parse
 from datetime import datetime
 from pathlib import PurePath
 
@@ -50,11 +49,12 @@ ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
 twilio_controller = TwilioController(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, ADMIN_PHONE_NUMBER)
 
 # setup scheduler
-CRONJOB_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_CHECKS'])
+CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
+CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
 # add 24 hour check jobs using crontab expression
-scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller])
+scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
+scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller])
 scheduler.start()
 
 #init app - rename with desired app name
