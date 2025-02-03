@@ -11,11 +11,14 @@ from phonenumbers import PhoneNumberFormat
 from alt_smartsheet import AllTrackerSheet, TechDetails
 from sms import SMSBaseController
 
+DATETIME_SMS_FORMAT = '%a %b, %d %Y @ %I:%M%p'
+TIME_FORM_FORMAT = '%H%M'
 
 def build_form(url: str, tech_details: TechDetails):
     params = {
         'Tech Name': tech_details.tech_name,
-        'Time': tech_details.appt_datetime,
+        'Date': tech_details.appt_datetime.date().isoformat(),
+        'Time': tech_details.appt_datetime.time().strftime(TIME_FORM_FORMAT),
         'Location': tech_details.address,
         'Site ID': tech_details.site_id,
         "Work Number - Please don't change" : tech_details.work_market_num
@@ -48,8 +51,10 @@ def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: 
                 continue
             url = build_form(form_url, tech_details)
             send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
+            logger.info(f'Sending 1 hour pre-call to {send_to}.')
             sms_controller.send_text(send_to,
-                                     f'Please confirm the details of your appointment tomorrow: {url}')
+                                     'Please confirm the details of your appointment tomorrow at '
+                                     f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
 
 def get_1_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, sms_controller: SMSBaseController) -> list[tuple[datetime, TechDetails]]:
     # filter rows by today's date and unfinished checks
@@ -72,6 +77,7 @@ def get_1_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, sms_controll
 
 def send_1_hour_check(tech_details: TechDetails, sms_controller: SMSBaseController):
     send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
+    logger.info(f'Sending 1 hour pre-call to {send_to}.')
     sms_controller.send_text(send_to,
                              f'Reminder that your appointment (ID {tech_details.site_id}) is in one hour !')
 
@@ -80,4 +86,5 @@ def schedule_1_hour_checks(scheduler: BackgroundScheduler, sheet: AllTrackerShee
     # get 1 hour checks for the day
     checks = get_1_hour_checks(sheet, geolocator, sms_controller)
     for appt_datetime, tech_details in checks:
+        logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {appt_datetime}.')
         scheduler.add_job(send_1_hour_check, trigger='date', run_date=appt_datetime, args=[tech_details, sms_controller])
