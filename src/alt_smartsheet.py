@@ -61,16 +61,16 @@ class AllTrackerSheet(Sheet):
         super().__init__(sheet)
 
     def get_24_hour_checkbox(self, row: Row) -> bool:
-        return bool(self.get_cell_by_column_name(row, '24 hour call').value)
+        return bool(self.get_cell_by_column_name(row, '24 HR Pre-call').value)
     
     def set_24_hour_checkbox(self, row: Row, status: bool):
-        self.set_checkbox(row, '24 hour call', status)
+        self.set_checkbox(row, '24 HR Pre-call', status)
 
     def get_1_hour_checkbox(self, row: Row) -> bool:
-        return bool(self.get_cell_by_column_name(row, '1 HR Call').value)
+        return bool(self.get_cell_by_column_name(row, '1 HR Pre-call').value)
 
     def set_1_hour_checkbox(self, row: Row, status: bool):
-        self.set_checkbox(row, '1 hour call', status)
+        self.set_checkbox(row, '1 HR Pre-call', status)
 
     def get_postal_code(self, row: Row) -> str:
         # cast to int since some values can come in as float
