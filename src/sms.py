@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 
-from loguru import logger
 from twilio.rest import Client
 
 
@@ -22,4 +21,3 @@ class TwilioController(SMSBaseController):
             from_=self.from_,
             to=to
         )
-        logger.debug(message.body)

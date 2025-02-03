@@ -1,8 +1,7 @@
 import os
 import secrets
 import sys
-import urllib.parse
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import PurePath
 
 import dotenv
@@ -32,7 +31,7 @@ logger.configure(handlers=[{'sink': sys.stderr, 'level': LOGGING_LEVEL}])
 # initialize smartsheet
 SMARTSHEET_SHEET_ID = os.environ['SMARTSHEET_SHEET_ID']
 smartsheet_controller = SmartsheetController()
-sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)
+sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # test access
 
 # Initialize N8N global environment variables.
 N8N_BASE_URL = os.getenv('N8N_BASE_URL')
@@ -50,18 +49,19 @@ ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
 twilio_controller = TwilioController(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, ADMIN_PHONE_NUMBER)
 
 # setup scheduler
-CRONJOB_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_CHECKS'])
+CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
+CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
 # add 24 hour check jobs using crontab expression
-scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller])
+scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
+scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller])
 scheduler.start()
 
 #init app - rename with desired app name
 checkin = FastAPI()
 
 #init key for auth
-api_key = APIKeyHeader(name='API-Key-Name')
+api_key = APIKeyHeader(name='API-Key')
 
 #auth key
 def authorize(key: str = Depends(api_key)):
@@ -71,51 +71,76 @@ def authorize(key: str = Depends(api_key)):
             detail='Invalid token')
 
 
-#sample get
+class Form(BaseModel):
+    tech_name: str
+    date: date
+    time: str
+    location: str
+    site_id: str
+    work_market_num: str
+    comment: str | None = None
+
+
 @checkin.post('/formsubmit', dependencies=[Depends(authorize)])
-def form(Tech_Name: str,
-        Time: str,
-        Location: str,
-        Site_ID: str,
-        Correct: str,
-        CC_Email: str,
-        Officetrak: str,
-        Work_market_num: str,
-        Other_Correction: str):
+def form(form: Form):
+    logger.debug(form)
+    logger.info(f'Form submitted for {form.work_market_num}')
+    sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # get sheet updates
     #take above parameters and either correct row in smartsheet and/or @ person in resposible collumn for correction to be made
-    comment = f"24 Check in complete, \nHas tech logged in to CC_Email in last 3 days?: {CC_Email}\nHas Tech logged into OfficeTrak in the last 3 days?: {Officetrak}"
-    for row in sheet.get_rows():
-        if sheet.get_work_market_num_id(row) == Work_market_num:
-            if Correct =="Yes":
-                if not sheet.get_24_hour_checkbox(row):
-                    sheet.set_24_hour_checkbox(row, True)
-                #set comment to "24 Hour Check in Complete"
-            elif Correct == "No - Something needs to be corrected":
-                comment = "24 Hour check in needs correcting. "
-                sheet_details = sheet.get_tech_details(row)
-                if sheet_details.tech_name != Tech_Name:
-                    comment= comment + f"Tech needs to be changed to {Tech_Name}."
-                if sheet_details.site_id != Site_ID:
-                    comment= comment + f"Site ID needs to be changed to {Site_ID}."
-                if sheet_details.appt_datetime != Time:
-                    comment= comment + f"Appointment time needs to be changed to {Time}."
-                if sheet_details.address != Location:
-                    comment= comment + f"Address needs to be changed to {Location}."
-                if Other_Correction:
-                    comment = comment + f"Additional Comment from tech: {Other_Correction}"   
-            elif Correct== "No - I don't know the correction yet":
-                comment = "24 Check in had a problem that the automation doesn't handle, please reach out to the tech"
-            discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
-            if discussions:
-                for discussion in discussions:
-                    if discussion.parent_id == row.id:
-                        smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comment)
-                        break
-                    else:
-                        smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)
-                        break
-            else:
-                smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comment)           
+    try:
+        row = next(row for row in sheet.get_rows() if sheet.get_work_market_num_id(row) == form.work_market_num)
+    except StopIteration:
+        logger.error(f'Failed to handle form submission. Cannot find row with Work Market # of {form.work_market_num}.')
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Canont find row with Work Market # of {form.work_market_num}.')
+    if sheet.get_24_hour_checkbox(row):
+        # already complete, ignore request
+        msg = 'Form is already complete. Ignoring any further requests.'
+        logger.warning(msg)
+        return msg
+
+    # compare fields for changes
+    tech_details = sheet.get_tech_details(row)
+    comments = []  # will take advantage of join() function
+    if tech_details.tech_name != form.tech_name:
+        comments.append(f"Tech needs to be changed to {form.tech_name}.")
+    if tech_details.site_id != form.site_id:
+        comments.append(f"Site ID needs to be changed to {form.site_id}.")
+    parsed_time = datetime.strptime(form.time, check_in.TIME_FORM_FORMAT).time()
+    if tech_details.appt_datetime.time() != parsed_time:
+        comments.append(f"Appointment time needs to be changed to {parsed_time.strftime(check_in.TIME_FORM_FORMAT)}.")
+    if tech_details.appt_datetime.date() != form.date:
+        comments.append(f"Appointment date needs to be changed to {form.date}.")
+    if tech_details.address != form.location:
+        comments.append(f"Address needs to be changed to {form.location}.")
+
+    # no comments means no changes were found, mark 24 hr check complete
+    if not comments:
+        sheet.set_24_hour_checkbox(row, True)
+        logger.info(f'Appointment {form.work_market_num} is correct. Updating 24 HR Pre-call checkbox...')
+        smartsheet_controller.update_rows(sheet)
+
+    # regardless of correctness, accept addtional comments
+    if form.comment:
+        comments.append(f"Additional comment from tech: {form.comment}")
+
+    # combine comments and add to row
+    if comments:
+        comments = '\n'.join(comments)
+        discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
+        if discussions:
+            for discussion in discussions:
+                if discussion.parent_id == row.id:
+                    smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comments)
+                    break
+                else:
+                    smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
+                    break
+        else:
+            smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
+    msg = f'24 hour pre-call complete for {form.work_market_num}'
+    logger.info(msg)
+    return msg
+
 
 class JobView(BaseModel):
     id: str
@@ -126,10 +151,10 @@ class JobView(BaseModel):
     def from_job(cls, job: Job):
         return cls(id=job.id, name=job.name, next_run_time=job.next_run_time)
 
-@checkin.get('/jobs', dependencies=[Depends(authorize)])
+@checkin.get('/jobs', dependencies=[Depends(authorize)], tags=['Jobs'])
 def get_jobs() -> list[JobView]:
     return [JobView.from_job(job) for job in scheduler.get_jobs()]
 
-@checkin.get('/jobs/{job_id}', dependencies=[Depends(authorize)])
+@checkin.get('/jobs/{job_id}', dependencies=[Depends(authorize)], tags=['Jobs'])
 def get_job(job_id: str) -> JobView:
     return JobView.from_job(scheduler.get_job(job_id))
