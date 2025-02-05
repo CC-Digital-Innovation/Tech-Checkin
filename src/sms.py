@@ -16,8 +16,9 @@ class TwilioController(SMSBaseController):
         self.admin_num = admin_num
 
     def send_text(self, to: str, message: str):
-        message = self.client.messages.create(
+        msg_instance = self.client.messages.create(
             body=message,
             from_=self.from_,
             to=to
         )
+        return msg_instance
