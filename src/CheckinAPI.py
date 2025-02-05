@@ -54,7 +54,7 @@ CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
 # add 24 hour check jobs using crontab expression
 scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller])
+scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller, smartsheet_controller])
 scheduler.start()
 
 #init app - rename with desired app name
@@ -81,8 +81,8 @@ class Form(BaseModel):
     comment: str | None = None
 
 
-@checkin.post('/formsubmit', dependencies=[Depends(authorize)])
-def form(form: Form):
+@checkin.post('/forms/submit', dependencies=[Depends(authorize)], tags=['Forms'])
+def submit_form(form: Form):
     logger.debug(form)
     logger.info(f'Form submitted for {form.work_market_num}')
     sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # get sheet updates
@@ -152,9 +152,9 @@ class JobView(BaseModel):
         return cls(id=job.id, name=job.name, next_run_time=job.next_run_time)
 
 @checkin.get('/jobs', dependencies=[Depends(authorize)], tags=['Jobs'])
-def get_jobs() -> list[JobView]:
+def list_jobs() -> list[JobView]:
     return [JobView.from_job(job) for job in scheduler.get_jobs()]
 
-@checkin.get('/jobs/{job_id}', dependencies=[Depends(authorize)], tags=['Jobs'])
-def get_job(job_id: str) -> JobView:
-    return JobView.from_job(scheduler.get_job(job_id))
+@checkin.get('/jobs/{id}', dependencies=[Depends(authorize)], tags=['Jobs'])
+def get_job(id: str) -> JobView:
+    return JobView.from_job(scheduler.get_job(id))
