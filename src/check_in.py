@@ -1,5 +1,6 @@
 import urllib.parse
 from datetime import date, datetime, timedelta
+from typing import NamedTuple
 
 import phonenumbers
 import pytz
@@ -7,8 +8,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from geopy import GeoNames
 from loguru import logger
 from phonenumbers import PhoneNumberFormat
+from smartsheet.sheets import Row
 
-from alt_smartsheet import AllTrackerSheet, TechDetails
+from alt_smartsheet import AllTrackerSheet, SmartsheetController, TechDetails
 from sms import SMSBaseController
 
 DATETIME_SMS_FORMAT = '%a %b, %d %Y @ %I:%M%p'
@@ -51,10 +53,17 @@ def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: 
                 continue
             url = build_form(form_url, tech_details)
             send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
-            logger.info(f'Sending 1 hour pre-call to {send_to}.')
+            logger.info(f'Sending 24 hour pre-call for {tech_details.work_market_num} to {send_to}.')
             sms_controller.send_text(send_to,
                                      'Please confirm the details of your appointment tomorrow at '
                                      f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+
+
+class OneHRPrecall(NamedTuple):
+    sched_time: datetime
+    tech_details: TechDetails
+    row: Row
+
 
 def get_1_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, sms_controller: SMSBaseController) -> list[tuple[datetime, TechDetails]]:
     # filter rows by today's date and unfinished checks
@@ -72,19 +81,27 @@ def get_1_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, sms_controll
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
             continue
         if now < tech_details.appt_datetime < tomorrow:
-            rows_to_check.append(((tech_details.appt_datetime - timedelta(hours=1)), tech_details))
+            rows_to_check.append(OneHRPrecall(sched_time=(tech_details.appt_datetime - timedelta(hours=1)),
+                                            tech_details=tech_details,
+                                            row=row))
     return rows_to_check
 
-def send_1_hour_check(tech_details: TechDetails, sms_controller: SMSBaseController):
+def send_1_hour_check(tech_details: TechDetails,
+                      sms_controller: SMSBaseController,
+                      row: Row,
+                      sheet: AllTrackerSheet,
+                      smartsheet_controller: SmartsheetController):
     send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
     logger.info(f'Sending 1 hour pre-call to {send_to}.')
     sms_controller.send_text(send_to,
-                             f'Reminder that your appointment (ID {tech_details.site_id}) is in one hour !')
+                             f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+    sheet.set_1_hour_checkbox(row, True)
+    smartsheet_controller.update_rows(sheet)
 
-def schedule_1_hour_checks(scheduler: BackgroundScheduler, sheet: AllTrackerSheet, geolocator: GeoNames, sms_controller: SMSBaseController):
+def schedule_1_hour_checks(scheduler: BackgroundScheduler, sheet: AllTrackerSheet, geolocator: GeoNames, sms_controller: SMSBaseController, smartsheet_controller: SmartsheetController):
     logger.info('Scheduling 1 hour checks...')
     # get 1 hour checks for the day
     checks = get_1_hour_checks(sheet, geolocator, sms_controller)
-    for appt_datetime, tech_details in checks:
-        logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {appt_datetime}.')
-        scheduler.add_job(send_1_hour_check, trigger='date', run_date=appt_datetime, args=[tech_details, sms_controller])
+    for sched_time, tech_details, row in checks:
+        logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
+        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, sheet, smartsheet_controller])
