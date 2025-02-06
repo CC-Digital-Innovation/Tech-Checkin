@@ -46,6 +46,7 @@ TWILIO_ACCOUNT_SID = os.environ['TWILIO_ACCOUNT_SID']
 TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
 TWILIO_FROM = os.environ['TWILIO_FROM']
 ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')
 twilio_controller = TwilioController(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, ADMIN_PHONE_NUMBER)
 
 # setup scheduler
@@ -125,6 +126,8 @@ def submit_form(form: Form):
 
     # combine comments and add to row
     if comments:
+        if ADMIN_EMAIL:
+            comments.append(f'@{ADMIN_EMAIL}')  # ping admin email
         comments = '\n'.join(comments)
         discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
         if discussions:
