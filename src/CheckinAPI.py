@@ -42,12 +42,12 @@ GEONAMES_USER = os.environ['GEONAMES_USER']
 geolocator = GeoNames(username=GEONAMES_USER)
 
 # initialize twilio client
-TWILIO_ACCOUNT_SID = os.environ['TWILIO_ACCOUNT_SID']
-TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
+TWILIO_API_SID = os.environ['TWILIO_API_SID']
+TWILIO_API_KEY = os.environ["TWILIO_API_KEY"]
 TWILIO_FROM = os.environ['TWILIO_FROM']
 ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')
-twilio_controller = TwilioController(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, ADMIN_PHONE_NUMBER)
+twilio_controller = TwilioController(TWILIO_API_SID, TWILIO_API_KEY, TWILIO_FROM, ADMIN_PHONE_NUMBER)
 
 # setup scheduler
 CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
