@@ -3,12 +3,12 @@ import secrets
 import sys
 from datetime import date, datetime
 from pathlib import PurePath
-
+import openpyxl
 import dotenv
 from apscheduler.job import Job
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, UploadFile
 from fastapi.security import APIKeyHeader
 from geopy.geocoders import GeoNames
 from loguru import logger
@@ -82,6 +82,50 @@ class Form(BaseModel):
     comment: str | None = None
 
 
+def comment(comments, row):
+    discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
+    if discussions:
+        for discussion in discussions:
+            if discussion.parent_id == row.id:
+                smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comments)
+                break
+            else:
+                smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
+                break
+    else:
+        smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
+
+
+@checkin.post('/OT_file_upload', dependencies=[Depends(authorize)])
+def OT_file_upload(file: UploadFile):
+    #assumptions to be checked when we have sample data
+    #Tech name is a collumn
+    #WO is a collumne
+    #WO number is related to the work market number
+    smartsheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # get sheet updates
+    book = openpyxl.load_workbook(file)
+    filesheet = book.active
+
+    for row in filesheet.rows:
+        for cell in row:
+            if "WO" in cell.value:
+                wo_ind = row.index(cell)
+            if "Tech Name" in cell.value:
+                tn_ind = row.index(cell)
+        break
+
+    comments = ''
+    for smart_row in smartsheet.get_rows():
+        for row in filesheet.rows:
+            if row[wo_ind].value == smartsheet.get_work_market_num_id(smart_row):
+                if row[tn_ind].value != smartsheet.get_tech_name(smart_row):
+                    comments = f"Tech Name needs to be changed in OfficeTrak from {row[tn_ind].value} to {smartsheet.get_tech_name(smart_row)}"
+        if comments:
+            comment(comments, smart_row)
+            comments= ''
+
+
+
 @checkin.post('/forms/submit', dependencies=[Depends(authorize)], tags=['Forms'])
 def submit_form(form: Form):
     logger.debug(form)
@@ -129,17 +173,7 @@ def submit_form(form: Form):
         if ADMIN_EMAIL:
             comments.append(f'@{ADMIN_EMAIL}')  # ping admin email
         comments = '\n'.join(comments)
-        discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
-        if discussions:
-            for discussion in discussions:
-                if discussion.parent_id == row.id:
-                    smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comments)
-                    break
-                else:
-                    smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
-                    break
-        else:
-            smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
+        comment(comments, row)
     msg = f'24 hour pre-call complete for {form.work_market_num}'
     logger.info(msg)
     return msg
