@@ -115,11 +115,11 @@ class AllTrackerSheet(Sheet):
         try:
             parsed_num = phonenumbers.parse(num, region)
         except phonenumbers.NumberParseException as e:
-            msg = f'Error parsing number: {e}'
+            msg = f'Error parsing number on row #{row.row_number}: {e}'
             logger.warning(msg)
-            raise ValueError(msg)
+            raise ValueError(msg) from e
         if not phonenumbers.is_valid_number(parsed_num):
-            msg = f'Number {parsed_num.national_number} is not valid for region {region}.'
+            msg = f'Error parsing number on row #{row.row_number}: Number {parsed_num.national_number} is not valid for region {region}.'
             logger.warning(msg)
             raise ValueError(msg)
         return parsed_num
