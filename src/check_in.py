@@ -54,9 +54,12 @@ def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: 
             url = build_form(form_url, tech_details)
             send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
             logger.info(f'Sending 24 hour pre-call for {tech_details.work_market_num} to {send_to}.')
-            resp = sms_controller.send_text(send_to,
-                                     'Please confirm the details of your appointment tomorrow at '
-                                     f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+            try:
+                resp = sms_controller.send_text(send_to,
+                                                'Please confirm the details of your appointment tomorrow at '
+                                                f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+            except RuntimeError as e:
+                logger.error(f'Could not send 24 hour pre-text for row #{row.row_number}: "{e}"')
             logger.debug(resp)
 
 
@@ -94,8 +97,12 @@ def send_1_hour_check(tech_details: TechDetails,
                       smartsheet_controller: SmartsheetController):
     send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
     logger.info(f'Sending 1 hour pre-call to {send_to}.')
-    resp = sms_controller.send_text(send_to,
-                             f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+    try:
+        resp = sms_controller.send_text(send_to,
+                                        f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+    except RuntimeError as e:
+        logger.error(f'Could not send 1 hour pre-text for row #{row.row_number}: "{e}"')
+        return
     logger.debug(resp)
     sheet.set_1_hour_checkbox(row, True)
     smartsheet_controller.update_rows(sheet)
