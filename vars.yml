@@ -1,6 +1,6 @@
 repo: https://github.com/CC-Digital-Innovation/Tech-Checkin.git
 ssh_url: git@github.com:CC-Digital-Innovation/Tech-Checkin.git
-branch: main
+branch: dev
 project_root: src
 image: tech-checkin
 manifest_path: kubernetes/deployment.yml
