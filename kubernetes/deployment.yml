@@ -40,7 +40,7 @@ spec:
         app: tech-checkin
     spec:
       containers:
-        - image: harbor.k3s.quokka.ninja/library/tech-checkin
+        - image: harbor.k3s.quokka.ninja/library/tech-checkin:0.0.1
           name: tech-checkin
           args: ['/bin/bash', '-c', 'source /vault/secrets/tech-checkin && uvicorn CheckinAPI:checkin --host 0.0.0.0 --port 8000 --root-path /tech-checkin']
           ports:
