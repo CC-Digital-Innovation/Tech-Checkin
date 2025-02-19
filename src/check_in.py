@@ -11,12 +11,12 @@ from phonenumbers import PhoneNumberFormat
 from smartsheet.sheets import Row
 
 from alt_smartsheet import AllTrackerSheet, SmartsheetController, TechDetails
-from sms import SMSBaseController
+from sms import SMSBaseController, TextbeltController
 
 DATETIME_SMS_FORMAT = '%a %b, %d %Y @ %I:%M%p'
 TIME_FORM_FORMAT = '%H%M'
 
-def build_form(url: str, tech_details: TechDetails):
+def build_form(url: str, tech_details: TechDetails, sms_controller: SMSBaseController | None = None):
     params = {
         'Tech Name': tech_details.tech_name,
         'Date': tech_details.appt_datetime.date().isoformat(),
@@ -25,7 +25,12 @@ def build_form(url: str, tech_details: TechDetails):
         'Site ID': tech_details.site_id,
         "Work Number - Please don't change" : tech_details.work_market_num
     }
-    return f'{url}?{urllib.parse.urlencode(params, quote_via=urllib.parse.quote)}'
+    if isinstance(sms_controller, TextbeltController):
+        url = f'{url}?{urllib.parse.urlencode(params)}'
+    else:
+        url = f'{url}?{urllib.parse.urlencode(params, quote_via=urllib.parse.quote)}'
+    logger.debug(url)
+    return url
 
 def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: str, sms_controller: SMSBaseController):
     logger.info('Scheduling 24 hour checks...')
@@ -51,7 +56,7 @@ def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: 
                     sms_controller.send_text(sms_controller.admin_num, error_msg)
                 logger.error(error_msg)
                 continue
-            url = build_form(form_url, tech_details)
+            url = build_form(form_url, tech_details, sms_controller)
             send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
             logger.info(f'Sending 24 hour pre-call for {tech_details.work_market_num} to {send_to}.')
             try:
