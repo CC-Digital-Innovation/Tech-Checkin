@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 import check_in
 from alt_smartsheet import SmartsheetController
-from sms import TwilioController
+from sms import TextbeltController, TwilioController
 
 #load secrets from environemnt variables defined in deployement
 dotenv.load_dotenv(PurePath(__file__).with_name('.env'))
@@ -30,6 +30,7 @@ logger.configure(handlers=[{'sink': sys.stderr, 'level': LOGGING_LEVEL}])
 
 # initialize smartsheet
 SMARTSHEET_SHEET_ID = os.environ['SMARTSHEET_SHEET_ID']
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')  # Optional. Used to ping in smartsheets.
 smartsheet_controller = SmartsheetController()
 sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # test access
 
@@ -41,21 +42,27 @@ N8N_WORKFLOW_ID = os.getenv('N8N_WORKFLOW_ID')
 GEONAMES_USER = os.environ['GEONAMES_USER']
 geolocator = GeoNames(username=GEONAMES_USER)
 
-# initialize twilio client
-TWILIO_ACCOUNT_SID = os.environ['TWILIO_ACCOUNT_SID']
-TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
-TWILIO_FROM = os.environ['TWILIO_FROM']
 ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
-ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')
-twilio_controller = TwilioController(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM, ADMIN_PHONE_NUMBER)
+SMS_TOOL=os.getenv('SMS_TOOL', 'textbelt').lower()
+if SMS_TOOL == 'textbelt':
+    TEXTBELT_KEY = os.environ['TEXTBELT_KEY']
+    TEXTBELT_SENDER = os.environ['TEXTBELT_SENDER']
+    sms_controller = TextbeltController(TEXTBELT_KEY, TEXTBELT_SENDER, ADMIN_PHONE_NUMBER)
+elif SMS_TOOL == 'twilio':
+    TWILIO_API_SID = os.environ['TWILIO_API_SID']
+    TWILIO_API_KEY = os.environ["TWILIO_API_KEY"]
+    TWILIO_FROM = os.environ['TWILIO_FROM']
+    sms_controller = TwilioController(TWILIO_API_SID, TWILIO_API_KEY, TWILIO_FROM, ADMIN_PHONE_NUMBER)
+else:
+    raise ValueError(f'SMS tool {SMS_TOOL} is not supported.')
 
 # setup scheduler
 CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
 CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
 # add 24 hour check jobs using crontab expression
-scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', twilio_controller])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, twilio_controller, smartsheet_controller])
+scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
+scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, sms_controller, smartsheet_controller])
 scheduler.start()
 
 #init app - rename with desired app name

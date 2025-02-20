@@ -1,0 +1,12 @@
+.git/
+.gitignore
+venv/
+src/__pycache__/
+README.md
+LICENSE
+Dockerfile
+kubernetes/
+version
+vars.yml
+pipeline.yml
+src/.env

@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: <Insert App Name>
+  name: tech-checkin
 spec:
   selector:
-    app: <Insert App Name>
+    app: tech-checkin
   ports:
     - port: 8000

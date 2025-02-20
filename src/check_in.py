@@ -11,12 +11,12 @@ from phonenumbers import PhoneNumberFormat
 from smartsheet.sheets import Row
 
 from alt_smartsheet import AllTrackerSheet, SmartsheetController, TechDetails
-from sms import SMSBaseController
+from sms import SMSBaseController, TextbeltController
 
 DATETIME_SMS_FORMAT = '%a %b, %d %Y @ %I:%M%p'
 TIME_FORM_FORMAT = '%H%M'
 
-def build_form(url: str, tech_details: TechDetails):
+def build_form(url: str, tech_details: TechDetails, sms_controller: SMSBaseController | None = None):
     params = {
         'Tech Name': tech_details.tech_name,
         'Date': tech_details.appt_datetime.date().isoformat(),
@@ -25,7 +25,12 @@ def build_form(url: str, tech_details: TechDetails):
         'Site ID': tech_details.site_id,
         "Work Number - Please don't change" : tech_details.work_market_num
     }
-    return f'{url}?{urllib.parse.urlencode(params, quote_via=urllib.parse.quote)}'
+    if isinstance(sms_controller, TextbeltController):
+        url = f'{url}?{urllib.parse.urlencode(params)}'
+    else:
+        url = f'{url}?{urllib.parse.urlencode(params, quote_via=urllib.parse.quote)}'
+    logger.debug(url)
+    return url
 
 def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: str, sms_controller: SMSBaseController):
     logger.info('Scheduling 24 hour checks...')
@@ -36,8 +41,8 @@ def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: 
             continue  # already checked
         try:
             appt_date = sheet.get_appt_date(row)
-        except ValueError as e:
-            error_msg = f'Error parsing date for row #{row.row_number}. Error: "{e}"'
+        except (ValueError, TypeError) as e:
+            error_msg = f'Error parsing date for row #{row.row_number}: "{e}"'
             if sms_controller.admin_num:
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
             logger.error(error_msg)
@@ -46,17 +51,21 @@ def send_24_hour_checks(sheet: AllTrackerSheet, geolocator: GeoNames, form_url: 
             try:
                 tech_details = sheet.get_tech_details(row, geolocator)
             except ValueError as e:
-                error_msg = f'Could not schedule 24 hour pre-text while parsing row #{row.row_number}. Error: "{e}"'
+                error_msg = f'Could not schedule 24 hour pre-text while parsing row #{row.row_number}: "{e}"'
                 if sms_controller.admin_num:
                     sms_controller.send_text(sms_controller.admin_num, error_msg)
                 logger.error(error_msg)
                 continue
-            url = build_form(form_url, tech_details)
+            url = build_form(form_url, tech_details, sms_controller)
             send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
             logger.info(f'Sending 24 hour pre-call for {tech_details.work_market_num} to {send_to}.')
-            sms_controller.send_text(send_to,
-                                     'Please confirm the details of your appointment tomorrow at '
-                                     f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+            try:
+                resp = sms_controller.send_text(send_to,
+                                                'Please confirm the details of your appointment tomorrow at '
+                                                f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+            except RuntimeError as e:
+                logger.error(f'Could not send 24 hour pre-text for row #{row.row_number}: "{e}"')
+            logger.debug(resp)
 
 
 class OneHRPrecall(NamedTuple):
@@ -93,8 +102,13 @@ def send_1_hour_check(tech_details: TechDetails,
                       smartsheet_controller: SmartsheetController):
     send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
     logger.info(f'Sending 1 hour pre-call to {send_to}.')
-    sms_controller.send_text(send_to,
-                             f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+    try:
+        resp = sms_controller.send_text(send_to,
+                                        f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+    except RuntimeError as e:
+        logger.error(f'Could not send 1 hour pre-text for row #{row.row_number}: "{e}"')
+        return
+    logger.debug(resp)
     sheet.set_1_hour_checkbox(row, True)
     smartsheet_controller.update_rows(sheet)
 
