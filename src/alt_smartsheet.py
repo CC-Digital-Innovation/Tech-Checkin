@@ -52,12 +52,15 @@ class AllTrackerMixin:
             # get timezone from address
             postal_code = self.get_postal_code(row)
             location = geolocator.geocode(postal_code, country='US')
+            if location is None:
+                city = self.get_cell_by_column_name(row, 'City').value
+                location = geolocator.geocode(city, country='US')
             reversed_timezone = geolocator.reverse_timezone((location.latitude, location.longitude))
             appt_datetime = appt_datetime.replace(tzinfo=reversed_timezone.pytz_timezone)
         return appt_datetime
 
     def get_appt_full_address(self, row: Row) -> str:
-        return ', '.join((self.get_cell_by_column_name(row, 'Address').value,
+        return ', '.join((self.get_cell_by_column_name(row, 'Address').value.replace(',', ''),
                           self.get_cell_by_column_name(row, 'City').value,
                           self.get_cell_by_column_name(row, 'State').value,
                           self.get_postal_code(row)))
