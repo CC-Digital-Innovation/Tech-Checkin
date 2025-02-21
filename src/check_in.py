@@ -91,7 +91,7 @@ def get_1_hour_checks(report: AllTrackerReport, geolocator: GeoNames, sms_contro
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
             continue
         if now < tech_details.appt_datetime < until:
-            rows_to_check.append(OneHRPrecall(sched_time=(tech_details.appt_datetime - timedelta(hours=1)),
+            rows_to_check.append(OneHRPrecall(sched_time=tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1)),
                                             tech_details=tech_details,
                                             row=row))
     return rows_to_check
