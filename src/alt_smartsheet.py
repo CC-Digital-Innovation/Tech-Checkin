@@ -55,6 +55,10 @@ class AllTrackerMixin:
             if location is None:
                 city = self.get_cell_by_column_name(row, 'City').value
                 location = geolocator.geocode(city, country='US')
+                if location is None:
+                    msg = f'Error geocoding from zip ({postal_code}) and city ({city}) on row #{row.row_number}.'
+                    logger.warning(msg)
+                    raise ValueError(msg)
             reversed_timezone = geolocator.reverse_timezone((location.latitude, location.longitude))
             appt_datetime = appt_datetime.replace(tzinfo=reversed_timezone.pytz_timezone)
         return appt_datetime
