@@ -29,10 +29,10 @@ LOGGING_LEVEL = os.getenv('LOGGING_LEVEL', 'INFO')
 logger.configure(handlers=[{'sink': sys.stderr, 'level': LOGGING_LEVEL}])
 
 # initialize smartsheet
-SMARTSHEET_SHEET_ID = os.environ['SMARTSHEET_SHEET_ID']
+SMARTSHEET_REPORT_ID = os.environ['SMARTSHEET_REPORT_ID']
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')  # Optional. Used to ping in smartsheets.
 smartsheet_controller = SmartsheetController()
-sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # test access
+report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # test access
 
 # Initialize N8N global environment variables.
 N8N_BASE_URL = os.getenv('N8N_BASE_URL')
@@ -61,8 +61,8 @@ CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
 CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
 # add 24 hour check jobs using crontab expression
-scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[sheet, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, sheet, geolocator, sms_controller, smartsheet_controller])
+scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
+scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, geolocator, sms_controller, smartsheet_controller])
 scheduler.start()
 
 #init app - rename with desired app name
@@ -93,21 +93,21 @@ class Form(BaseModel):
 def submit_form(form: Form):
     logger.debug(form)
     logger.info(f'Form submitted for {form.work_market_num}')
-    sheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # get sheet updates
+    report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # get sheet updates
     #take above parameters and either correct row in smartsheet and/or @ person in resposible collumn for correction to be made
     try:
-        row = next(row for row in sheet.get_rows() if sheet.get_work_market_num_id(row) == form.work_market_num)
+        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == form.work_market_num)
     except StopIteration:
         logger.error(f'Failed to handle form submission. Cannot find row with Work Market # of {form.work_market_num}.')
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Canont find row with Work Market # of {form.work_market_num}.')
-    if sheet.get_24_hour_checkbox(row):
+    if report.get_24_hour_checkbox(row):
         # already complete, ignore request
         msg = 'Form is already complete. Ignoring any further requests.'
         logger.warning(msg)
         return msg
 
     # compare fields for changes
-    tech_details = sheet.get_tech_details(row)
+    tech_details = report.get_tech_details(row)
     comments = []  # will take advantage of join() function
     if tech_details.tech_name != form.tech_name:
         comments.append(f"Tech needs to be changed to {form.tech_name}.")
@@ -123,9 +123,9 @@ def submit_form(form: Form):
 
     # no comments means no changes were found, mark 24 hr check complete
     if not comments:
-        sheet.set_24_hour_checkbox(row, True)
+        report.set_24_hour_checkbox(row, True)
         logger.info(f'Appointment {form.work_market_num} is correct. Updating 24 HR Pre-call checkbox...')
-        smartsheet_controller.update_rows(sheet)
+        smartsheet_controller.update_report_rows(report)
 
     # regardless of correctness, accept addtional comments
     if form.comment:
@@ -136,17 +136,7 @@ def submit_form(form: Form):
         if ADMIN_EMAIL:
             comments.append(f'@{ADMIN_EMAIL}')  # ping admin email
         comments = '\n'.join(comments)
-        discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
-        if discussions:
-            for discussion in discussions:
-                if discussion.parent_id == row.id:
-                    smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comments)
-                    break
-                else:
-                    smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
-                    break
-        else:
-            smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
+        smartsheet_controller.create_discussion_on_row(row.sheet_id, row.id, comments)
     msg = f'24 hour pre-call complete for {form.work_market_num}'
     logger.info(msg)
     return msg

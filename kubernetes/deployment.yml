@@ -20,7 +20,7 @@ spec:
             export N8N_BASE_URL="{{ .Data.data.N8N_BASE_URL }}"
             export N8N_WORKFLOW_ID="{{ .Data.data.N8N_WORKFLOW_ID }}"
             export SMARTSHEET_ACCESS_TOKEN="{{ .Data.data.SMARTSHEET_ACCESS_TOKEN }}"
-            export SMARTSHEET_SHEET_ID="{{ .Data.data.SMARTSHEET_SHEET_ID }}"
+            export SMARTSHEET_REPORT_ID="{{ .Data.data.SMARTSHEET_REPORT_ID }}"
             export GEONAMES_USER="{{ .Data.data.GEONAMES_USER }}"
             export CRONJOB_24_CHECKS="{{ .Data.data.CRONJOB_24_CHECKS }}"
             export CRONJOB_1_CHECKS="{{ .Data.data.CRONJOB_1_CHECKS }}"
