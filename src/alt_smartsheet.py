@@ -63,7 +63,7 @@ class AllTrackerMixin:
                           self.get_postal_code(row)))
 
     def get_tech_name(self, row: Row) -> str:
-        return self.get_cell_by_column_name(row, 'Tech Name(First and Last)').value
+        return self.get_cell_by_column_name(row, 'Tech Name (First and Last)').value
 
     def get_tech_contact(self, row: Row, region: str = 'US') -> str:
         query = self.get_cell_by_column_name(row, 'Tech Phone #').value
