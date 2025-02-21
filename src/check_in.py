@@ -74,10 +74,11 @@ class OneHRPrecall(NamedTuple):
     row: Row
 
 
-def get_1_hour_checks(report: AllTrackerReport, geolocator: GeoNames, sms_controller: SMSBaseController) -> list[tuple[datetime, TechDetails]]:
+def get_1_hour_checks(report: AllTrackerReport, geolocator: GeoNames, sms_controller: SMSBaseController, until: datetime | None = None) -> list[tuple[datetime, TechDetails]]:
     # filter rows by today's date and unfinished checks
     now = datetime.now(pytz.utc)
-    tomorrow = now + timedelta(days=1)
+    if until is None:
+        until = now + timedelta(days=1)
     rows_to_check = []
     for row in report.get_rows():
         if report.get_1_hour_checkbox(row):
@@ -89,8 +90,8 @@ def get_1_hour_checks(report: AllTrackerReport, geolocator: GeoNames, sms_contro
             if sms_controller.admin_num:
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
             continue
-        if now < tech_details.appt_datetime < tomorrow:
-            rows_to_check.append(OneHRPrecall(sched_time=(tech_details.appt_datetime - timedelta(hours=1)),
+        if now < tech_details.appt_datetime < until:
+            rows_to_check.append(OneHRPrecall(sched_time=tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1)),
                                             tech_details=tech_details,
                                             row=row))
     return rows_to_check
@@ -112,10 +113,15 @@ def send_1_hour_check(tech_details: TechDetails,
     report.set_1_hour_checkbox(row, True)
     smartsheet_controller.update_report_rows(report)
 
-def schedule_1_hour_checks(scheduler: BackgroundScheduler, report: AllTrackerReport, geolocator: GeoNames, sms_controller: SMSBaseController, smartsheet_controller: SmartsheetController):
+def schedule_1_hour_checks(scheduler: BackgroundScheduler,
+                           report: AllTrackerReport,
+                           geolocator: GeoNames,
+                           sms_controller: SMSBaseController,
+                           smartsheet_controller: SmartsheetController,
+                           until: datetime | None = None):
     logger.info('Scheduling 1 hour checks...')
     # get 1 hour checks for the day
-    checks = get_1_hour_checks(report, geolocator, sms_controller)
+    checks = get_1_hour_checks(report, geolocator, sms_controller, until)
     for sched_time, tech_details, row in checks:
         logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
         scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])

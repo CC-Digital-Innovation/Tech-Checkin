@@ -42,7 +42,7 @@ class AllTrackerMixin:
     def get_appt_date(self, row: Row) -> date:
         return date.fromisoformat(self.get_cell_by_column_name(row, 'Secured Date').value)
 
-    def get_appt_datetime(self, row: Row, geolocator: GeoNames | None = None) -> time:
+    def get_appt_datetime(self, row: Row, geolocator: GeoNames | None = None) -> datetime:
         appt_date = self.get_appt_date(row)
         appt_time = int(self.get_cell_by_column_name(row, 'Secured Time').value)
         hour = appt_time // 100
@@ -55,8 +55,12 @@ class AllTrackerMixin:
             if location is None:
                 city = self.get_cell_by_column_name(row, 'City').value
                 location = geolocator.geocode(city, country='US')
+                if location is None:
+                    msg = f'Error geocoding from zip ({postal_code}) and city ({city}) on row #{row.row_number}.'
+                    logger.warning(msg)
+                    raise ValueError(msg)
             reversed_timezone = geolocator.reverse_timezone((location.latitude, location.longitude))
-            appt_datetime = appt_datetime.replace(tzinfo=reversed_timezone.pytz_timezone)
+            appt_datetime = reversed_timezone.pytz_timezone.localize(appt_datetime)
         return appt_datetime
 
     def get_appt_full_address(self, row: Row) -> str:
