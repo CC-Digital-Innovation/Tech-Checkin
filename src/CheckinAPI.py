@@ -1,7 +1,7 @@
 import os
 import secrets
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import PurePath
 
 import dotenv
@@ -60,7 +60,9 @@ else:
 CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
 CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
-# add 24 hour check jobs using crontab expression
+# schedule 1 hour calls inbetween deployment time and next scheduled 1 hour pre-calls
+check_in.schedule_1_hour_checks(scheduler, report, geolocator, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)))
+# add 24 and 1 hour check jobs using crontab expression
 scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
 scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, geolocator, sms_controller, smartsheet_controller])
 scheduler.start()
