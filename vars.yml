@@ -1,7 +1,7 @@
-repo: <Insert Github Repo url>
-ssh_url: git@github.com:CC-Digital-Innovation/<Insert Repository Name>.git
+repo: https://github.com/CC-Digital-Innovation/Tech-Checkin.git
+ssh_url: git@github.com:CC-Digital-Innovation/Tech-Checkin.git
 branch: main
 project_root: src
-image: <Insert App Name>
+image: tech-checkin
 manifest_path: kubernetes/deployment.yml
-pipeline: <Insert ci/cd Pipeline name>
+pipeline: tech-checkin
