@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from pathlib import PurePath
 
 import dotenv
+import phonenumbers
 from apscheduler.job import Job
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -15,7 +16,7 @@ from loguru import logger
 from pydantic import BaseModel
 
 import check_in
-from alt_smartsheet import SmartsheetController
+from alt_smartsheet import SmartsheetController, TechDetails
 from sms import TextbeltController, TwilioController
 
 #load secrets from environemnt variables defined in deployement
@@ -148,10 +149,24 @@ class JobView(BaseModel):
     id: str
     name: str
     next_run_time: datetime
+    wm_num: str | None = None
+    tech_name: str | None = None
+    contact: str | None = None
+    site_id: str | None = None
 
     @classmethod
     def from_job(cls, job: Job):
-        return cls(id=job.id, name=job.name, next_run_time=job.next_run_time)
+        try:
+            tech_detail = next(field for field in job.args if isinstance(field, TechDetails))
+        except StopIteration:
+            return cls(id=job.id, name=job.name, next_run_time=job.next_run_time)
+        return cls(id=job.id,
+                   name=job.name,
+                   next_run_time=job.next_run_time,
+                   wm_num=tech_detail.work_market_num,
+                   tech_name=tech_detail.tech_name,
+                   contact=phonenumbers.format_number(tech_detail.tech_contact, phonenumbers.PhoneNumberFormat.E164),
+                   site_id=tech_detail.site_id)
 
 @checkin.get('/jobs', dependencies=[Depends(authorize)], tags=['Jobs'])
 def list_jobs() -> list[JobView]:
