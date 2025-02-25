@@ -91,28 +91,14 @@ class Form(BaseModel):
     comment: str | None = None
 
 
-def comment(comments, row):
-    discussions = smartsheet_controller.get_discussions(SMARTSHEET_SHEET_ID)
-    if discussions:
-        for discussion in discussions:
-            if discussion.parent_id == row.id:
-                smartsheet_controller.create_comment(SMARTSHEET_SHEET_ID, discussion.id, comments)
-                break
-            else:
-                smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
-                break
-    else:
-        smartsheet_controller.create_discussion_on_row(SMARTSHEET_SHEET_ID, row.id, comments)
-
-
-@checkin.post('/OT_file_upload', dependencies=[Depends(authorize)])
+@checkin.post('/OT_file_upload', dependencies=[Depends(authorize)], tags=['OfficeTrack'])
 def OT_file_upload(file: UploadFile):
     #assumptions to be checked when we have sample data
     #Tech name is a collumn
     #WO is a collumne
     #WO number is related to the work market number
-    smartsheet = smartsheet_controller.get_sheet(SMARTSHEET_SHEET_ID)  # get sheet updates
-    book = openpyxl.load_workbook(file)
+    smartsheet = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # get report updates
+    book = openpyxl.load_workbook(file.file)
     filesheet = book.active
 
     for row in filesheet.rows:
@@ -130,7 +116,7 @@ def OT_file_upload(file: UploadFile):
                 if row[tn_ind].value != smartsheet.get_tech_name(smart_row):
                     comments = f"Tech Name needs to be changed in OfficeTrak from {row[tn_ind].value} to {smartsheet.get_tech_name(smart_row)}"
         if comments:
-            comment(comments, smart_row)
+            smartsheet_controller.create_discussion_on_row(smart_row.sheet_id, smart_row.id, comments)
             comments= ''
 
 
