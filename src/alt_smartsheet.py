@@ -94,7 +94,18 @@ class AllTrackerMixin:
     
     def get_work_market_num_id(self, row: Row) -> str:
         # cast to int first to remove trailing zero
-        return str(int(self.get_cell_by_column_name(row, 'WORK MARKET #').value))
+        raw_result = self.get_cell_by_column_name(row, 'WORK MARKET #').value
+        try:
+            result = int(raw_result)
+        except:
+            logger.info("result not an number string")
+            try:
+                split = raw_result.split('/')
+                result = int(split[-1])
+            except Exception as e:
+                logger.debug(f"Work market number ran into exception case: {e}")
+
+        return str(result)
 
     def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
         return TechDetails(
