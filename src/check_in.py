@@ -68,6 +68,33 @@ def send_24_hour_checks(report: AllTrackerReport, geolocator: GeoNames, form_url
             logger.debug(resp)
 
 
+def send_24_hour_check(id: str, report: AllTrackerReport, geolocator: GeoNames, form_url: str, sms_controller: SMSBaseController):
+    try:
+        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+    except StopIteration:
+        raise ValueError(f'Cannot find record with work market #{id}.')
+    if report.get_24_hour_checkbox(row):
+        raise ValueError(f'24HR Pre-call is already checked.')
+    tech_details = report.get_tech_details(row, geolocator)
+    url = build_form(form_url, tech_details, sms_controller)
+    send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
+    logger.info(f'Sending 24 hour pre-call for {tech_details.work_market_num} to {send_to}.')
+    try:
+        resp = sms_controller.send_text(send_to,
+                                        'Please confirm the details of your appointment at '
+                                        f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+    except RuntimeError as e:
+        logger.error(f'Could not send 24 hour pre-text for row #{row.row_number}: "{e}"')
+    logger.debug(resp)
+    return {
+        'to': send_to,
+        'tech_name': tech_details.tech_name,
+        'work_market_num': tech_details.work_market_num,
+        'site_id': tech_details.site_id,
+        'link': url
+    }
+
+
 class OneHRPrecall(NamedTuple):
     sched_time: datetime
     tech_details: TechDetails
@@ -112,6 +139,12 @@ def send_1_hour_check(tech_details: TechDetails,
     logger.debug(resp)
     report.set_1_hour_checkbox(row, True)
     smartsheet_controller.update_report_rows(report)
+    return {
+        'to': send_to,
+        'tech_name': tech_details.tech_name,
+        'work_market_num': tech_details.work_market_num,
+        'site_id': tech_details.site_id
+    }
 
 def schedule_1_hour_checks(scheduler: BackgroundScheduler,
                            report: AllTrackerReport,

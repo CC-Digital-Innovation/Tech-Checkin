@@ -7,6 +7,7 @@ from pathlib import PurePath
 import dotenv
 import phonenumbers
 from apscheduler.job import Job
+from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -52,8 +53,9 @@ if SMS_TOOL == 'textbelt':
 elif SMS_TOOL == 'twilio':
     TWILIO_API_SID = os.environ['TWILIO_API_SID']
     TWILIO_API_KEY = os.environ["TWILIO_API_KEY"]
+    TWILIO_ACCOUNT_SID = os.environ['TWILIO_ACCOUNT_SID']
     TWILIO_FROM = os.environ['TWILIO_FROM']
-    sms_controller = TwilioController(TWILIO_API_SID, TWILIO_API_KEY, TWILIO_FROM, ADMIN_PHONE_NUMBER)
+    sms_controller = TwilioController(TWILIO_API_SID, TWILIO_API_KEY, TWILIO_ACCOUNT_SID, TWILIO_FROM, ADMIN_PHONE_NUMBER)
 else:
     raise ValueError(f'SMS tool {SMS_TOOL} is not supported.')
 
@@ -64,8 +66,8 @@ scheduler = BackgroundScheduler()
 # schedule 1 hour calls inbetween deployment time and next scheduled 1 hour pre-calls
 check_in.schedule_1_hour_checks(scheduler, report, geolocator, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)))
 # add 24 and 1 hour check jobs using crontab expression
-scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
-scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, geolocator, sms_controller, smartsheet_controller])
+cron_24hr_job = scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
+cron_1hr_job = scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, geolocator, sms_controller, smartsheet_controller])
 scheduler.start()
 
 #init app - rename with desired app name
@@ -168,6 +170,32 @@ class JobView(BaseModel):
                    contact=phonenumbers.format_number(tech_detail.tech_contact, phonenumbers.PhoneNumberFormat.E164),
                    site_id=tech_detail.site_id)
 
+@checkin.post('/24hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
+def send_24hr(id: str):
+    try:
+        return check_in.send_24_hour_check(id, report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
+    except ValueError as e:
+        logger.error(e)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
+    except RuntimeError as e:
+        logger.error(e)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Unexpected error from sending sms.')
+
+@checkin.post('/1hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
+def send_1hr(id: str):
+    try:
+        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+    except StopIteration:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f'Cannot find record with work market #{id}.')
+    if report.get_24_hour_checkbox(row):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1HR Pre-call is already checked.')
+    tech_details = report.get_tech_details(row, geolocator)
+    try:
+        return check_in.send_1_hour_check(tech_details, sms_controller, row, report, smartsheet_controller)
+    except RuntimeError as e:
+        logger.error(e)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Unexpected error from sending sms.')
+
 @checkin.get('/jobs', dependencies=[Depends(authorize)], tags=['Jobs'])
 def list_jobs() -> list[JobView]:
     return [JobView.from_job(job) for job in scheduler.get_jobs()]
@@ -175,3 +203,13 @@ def list_jobs() -> list[JobView]:
 @checkin.get('/jobs/{id}', dependencies=[Depends(authorize)], tags=['Jobs'])
 def get_job(id: str) -> JobView:
     return JobView.from_job(scheduler.get_job(id))
+
+@checkin.delete('/jobs/{id}', dependencies=[Depends(authorize)], tags=['Jobs'])
+def delete_job(id: str):
+    if id == cron_24hr_job.id or id == cron_1hr_job.id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, 'Cannot remove cron 24-hour or 1-hour jobs.')
+    try:
+        scheduler.remove_job(id)
+    except JobLookupError as e:
+        logger.error(e)
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e)) from e
