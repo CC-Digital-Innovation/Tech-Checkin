@@ -14,8 +14,8 @@ class SMSBaseController(ABC):
 
 
 class TwilioController(SMSBaseController):
-    def __init__(self, username: str, password: str, from_: str, admin_num: str | None = None):
-        self.client = Client(username, password)
+    def __init__(self, username: str, password: str, account_sid: str, from_: str, admin_num: str | None = None):
+        self.client = Client(username, password, account_sid)
         self.from_ = from_
         super().__init__(admin_num)
 
