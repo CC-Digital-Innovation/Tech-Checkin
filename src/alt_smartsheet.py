@@ -33,7 +33,9 @@ class AllTrackerMixin:
     def get_postal_code(self, row: Row) -> str:
         # cast to int since some values can come in as float
         # cast to str since there can be leading zeros
-        postal_code = str(int(self.get_cell_by_column_name(row, 'Zip Code').value.split('-')[0]))
+        zip_code = self.get_cell_by_column_name(row, 'Zip Code').value
+        zip_part_1 = zip_code.split('-')[0]
+        postal_code = str(int(zip_part_1))
         # fill in missing leading zeros
         if len(postal_code) < 5:
             postal_code = ('0' * (5 - len(postal_code))) + postal_code
