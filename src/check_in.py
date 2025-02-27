@@ -68,6 +68,30 @@ def send_24_hour_checks(report: AllTrackerReport, geolocator: GeoNames, form_url
             logger.debug(resp)
 
 
+def send_24_hour_check(id: str, report: AllTrackerReport, geolocator: GeoNames, form_url: str, sms_controller: SMSBaseController):
+    try:
+        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+    except StopIteration:
+        raise ValueError(f'Cannot find record with work market #{id}.')
+    if report.get_24_hour_checkbox(row):
+        raise ValueError(f'24HR Pre-call is already checked.')
+    tech_details = report.get_tech_details(row, geolocator)
+    url = build_form(form_url, tech_details, sms_controller)
+    send_to = phonenumbers.format_number(tech_details.tech_contact, PhoneNumberFormat.E164)
+    logger.info(f'Sending 24 hour pre-call for {tech_details.work_market_num} to {send_to}.')
+    resp = sms_controller.send_text(send_to,
+                                    'Please confirm the details of your appointment at '
+                                    f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+    logger.debug(resp)
+    return {
+        'to': send_to,
+        'tech_name': tech_details.tech_name,
+        'work_market_num': tech_details.work_market_num,
+        'site_id': tech_details.site_id,
+        'link': url
+    }
+
+
 class OneHRPrecall(NamedTuple):
     sched_time: datetime
     tech_details: TechDetails
@@ -113,6 +137,12 @@ def send_1_hour_check(tech_details: TechDetails,
     logger.debug(resp)
     report.set_1_hour_checkbox(row, True)
     smartsheet_controller.update_report_rows(report)
+    return {
+        'to': send_to,
+        'tech_name': tech_details.tech_name,
+        'work_market_num': tech_details.work_market_num,
+        'site_id': tech_details.site_id
+    }
 
 def schedule_1_hour_checks(scheduler: BackgroundScheduler,
                            report: AllTrackerReport,
@@ -126,3 +156,18 @@ def schedule_1_hour_checks(scheduler: BackgroundScheduler,
     for sched_time, tech_details, row in checks:
         logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
         scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])
+
+def schedule_1_hour_check(scheduler: BackgroundScheduler,
+                          id: str,
+                          report: AllTrackerReport,
+                          geolocator: GeoNames,
+                          sms_controller: SMSBaseController,
+                          smartsheet_controller: SmartsheetController):
+    row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+    if report.get_24_hour_checkbox(row):
+        raise ValueError(f'1HR Pre-call is already checked.')
+    tech_details = report.get_tech_details(row, geolocator)
+    sched_time = tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1))
+    if sched_time < datetime.now(pytz.utc):
+        raise ValueError(f'Cannot schedule in the past: {sched_time.isoformat()}')
+    return scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])

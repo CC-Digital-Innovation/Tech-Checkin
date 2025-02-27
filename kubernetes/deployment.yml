@@ -27,6 +27,7 @@ spec:
             export SMS_TOOL="{{ .Data.data.SMS_TOOL }}"
             export TEXTBELT_KEY="{{ .Data.data.TEXTBELT_KEY }}"
             export TEXTBELT_SENDER="{{ .Data.data.TEXTBELT_SENDER }}"
+            export TWILIO_ACCOUNT_SID="{{ .Data.data.TWILIO_ACCOUNT_SID }}"
             export TWILIO_API_SID="{{ .Data.data.TWILIO_API_SID }}"
             export TWILIO_API_KEY="{{ .Data.data.TWILIO_API_KEY }}"
             export TWILIO_FROM="{{ .Data.data.TWILIO_FROM }}"
