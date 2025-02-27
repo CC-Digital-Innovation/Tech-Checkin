@@ -89,6 +89,7 @@ def get_1_hour_checks(report: AllTrackerReport, geolocator: GeoNames, sms_contro
             error_msg = f'Could not schedule 1 hour pre-text while parsing row #{row.row_number}. Error: "{e}"'
             if sms_controller.admin_num:
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
+            logger.error(error_msg)
             continue
         if now < tech_details.appt_datetime < until:
             rows_to_check.append(OneHRPrecall(sched_time=tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1)),
