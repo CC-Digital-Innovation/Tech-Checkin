@@ -189,9 +189,20 @@ def send_1hr(id: str):
         raise HTTPException(status.HTTP_404_NOT_FOUND, f'Cannot find record with work market #{id}.')
     if report.get_24_hour_checkbox(row):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1HR Pre-call is already checked.')
-    tech_details = report.get_tech_details(row, geolocator)
     try:
-        return check_in.send_1_hour_check(tech_details, sms_controller, row, report, smartsheet_controller)
+        tech_details = report.get_tech_details(row, geolocator)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Could not send 1 hour pre-text while parsing row #{row.row_number}. Error: {e}.')
+    return check_in.send_1_hour_check(tech_details, sms_controller, row, report, smartsheet_controller)
+
+@checkin.post('/1hr/{id}/schedule', dependencies=[Depends(authorize)], tags=['SMS'])
+def schedule_1hr(id: str):
+    try:
+        return JobView.from_job(check_in.schedule_1_hour_check(scheduler, id, report, geolocator, sms_controller, smartsheet_controller))
+    except StopIteration:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f'Cannot find record with work market #{id}.')
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Could not schedule 1 hour pre-text. Error: {e}.')
     except RuntimeError as e:
         logger.error(e)
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, 'Unexpected error from sending sms.')
