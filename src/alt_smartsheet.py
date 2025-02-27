@@ -31,9 +31,20 @@ class AllTrackerMixin:
         return bool(self.get_cell_by_column_name(row, '1 HR Pre-call').value)
 
     def get_postal_code(self, row: Row) -> str:
-        # cast to int since some values can come in as float
-        # cast to str since there can be leading zeros
-        postal_code = str(int(self.get_cell_by_column_name(row, 'Zip Code').value))
+        value = self.get_cell_by_column_name(row, 'Zip Code').value
+        try:
+            # cast to int since some values can come in as float
+            # cast to str since there can be leading zeros
+            postal_code = str(int(value))
+        except ValueError:
+            # validate input which should contain a full 9 digit zip code with a hyphen
+            if len(value) != 10:
+                raise ValueError(f'Unrecognized number of digits for zip {value}.')
+            split_postal = value.split('-')
+            if len(split_postal) != 2 or len(split_postal[0]) != 5 or len(split_postal[1]) != 4:
+                raise ValueError(f'Unrecognized format for zip {value}.')
+            logger.debug(value)
+            return value
         # fill in missing leading zeros
         if len(postal_code) < 5:
             postal_code = ('0' * (5 - len(postal_code))) + postal_code
@@ -54,9 +65,10 @@ class AllTrackerMixin:
             location = geolocator.geocode(postal_code, country='US')
             if location is None:
                 city = self.get_cell_by_column_name(row, 'City').value
-                location = geolocator.geocode(city, country='US')
+                state = self.get_cell_by_column_name(row, 'State').value
+                location = geolocator.geocode(f'{city}, {state}', country='US')
                 if location is None:
-                    msg = f'Error geocoding from zip ({postal_code}) and city ({city}) on row #{row.row_number}.'
+                    msg = f'Error geocoding from zip ({postal_code}) and city, state ({city}, {state}) on row #{row.row_number}.'
                     logger.warning(msg)
                     raise ValueError(msg)
             reversed_timezone = geolocator.reverse_timezone((location.latitude, location.longitude))
@@ -94,7 +106,18 @@ class AllTrackerMixin:
     
     def get_work_market_num_id(self, row: Row) -> str:
         # cast to int first to remove trailing zero
-        return str(int(self.get_cell_by_column_name(row, 'WORK MARKET #').value))
+        raw_result = self.get_cell_by_column_name(row, 'WORK MARKET #').value
+        try:
+            result = int(raw_result)
+        except:
+            logger.info("result not an number string")
+            try:
+                split = raw_result.split('/')
+                result = int(split[-1])
+            except Exception as e:
+                logger.debug(f"Work market number ran into exception case: {e}")
+
+        return str(result)
 
     def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
         return TechDetails(
