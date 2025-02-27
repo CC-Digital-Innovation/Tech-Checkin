@@ -108,8 +108,7 @@ class AllTrackerMixin:
         raw_result = self.get_cell_by_column_name(row, 'WORK MARKET #').value
         try:
             result = int(raw_result)
-        except:
-            logger.info("result not an number string")
+        except ValueError:
             try:
                 split = raw_result.split('/')
                 result = int(split[-1])
