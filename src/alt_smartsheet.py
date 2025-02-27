@@ -31,11 +31,20 @@ class AllTrackerMixin:
         return bool(self.get_cell_by_column_name(row, '1 HR Pre-call').value)
 
     def get_postal_code(self, row: Row) -> str:
-        # cast to int since some values can come in as float
-        # cast to str since there can be leading zeros
-        zip_code = str(self.get_cell_by_column_name(row, 'Zip Code').value)
-        zip_part_1 = zip_code.split('-')[0]
-        postal_code = str(int(zip_part_1))
+        value = self.get_cell_by_column_name(row, 'Zip Code').value
+        try:
+            # cast to int since some values can come in as float
+            # cast to str since there can be leading zeros
+            postal_code = str(int(value))
+        except ValueError:
+            # validate input which should contain a full 9 digit zip code with a hyphen
+            if len(value) != 10:
+                raise ValueError(f'Unrecognized number of digits for zip {value}.')
+            split_postal = value.split('-')
+            if len(split_postal) != 2 or len(split_postal[0]) != 5 or len(split_postal[1]) != 4:
+                raise ValueError(f'Unrecognized format for zip {value}.')
+            logger.debug(value)
+            return value
         # fill in missing leading zeros
         if len(postal_code) < 5:
             postal_code = ('0' * (5 - len(postal_code))) + postal_code
