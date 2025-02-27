@@ -43,7 +43,6 @@ class AllTrackerMixin:
             split_postal = value.split('-')
             if len(split_postal) != 2 or len(split_postal[0]) != 5 or len(split_postal[1]) != 4:
                 raise ValueError(f'Unrecognized format for zip {value}.')
-            logger.debug(value)
             return value
         # fill in missing leading zeros
         if len(postal_code) < 5:
@@ -115,8 +114,7 @@ class AllTrackerMixin:
                 split = raw_result.split('/')
                 result = int(split[-1])
             except Exception as e:
-                logger.debug(f"Work market number ran into exception case: {e}")
-
+                raise ValueError(f"Work market number ran into an uncaught exception case: {e}") from e
         return str(result)
 
     def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
