@@ -197,6 +197,9 @@ def send_1hr(id: str):
 
 @checkin.post('/1hr/{id}/schedule', dependencies=[Depends(authorize)], tags=['SMS'])
 def schedule_1hr(id: str):
+    jobs = [JobView.from_job(job) for job in scheduler.get_jobs()]
+    if any(job.wm_num == id for job in jobs):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1 hour pre-text is already scheduled.')
     try:
         return JobView.from_job(check_in.schedule_1_hour_check(scheduler, id, report, geolocator, sms_controller, smartsheet_controller))
     except StopIteration:
