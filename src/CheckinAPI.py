@@ -42,7 +42,7 @@ N8N_WORKFLOW_ID = os.getenv('N8N_WORKFLOW_ID')
 
 # initalize geolocator
 GEONAMES_USER = os.environ['GEONAMES_USER']
-geolocator = GeoNames(username=GEONAMES_USER)
+geolocator = GeoNames(username=GEONAMES_USER, timeout=300)
 
 ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
 SMS_TOOL=os.getenv('SMS_TOOL', 'textbelt').lower()
@@ -169,6 +169,10 @@ class JobView(BaseModel):
                    tech_name=tech_detail.tech_name,
                    contact=phonenumbers.format_number(tech_detail.tech_contact, phonenumbers.PhoneNumberFormat.E164),
                    site_id=tech_detail.site_id)
+
+@checkin.post('/24hr', dependencies=[Depends(authorize)], tags=['SMS'])
+def send_all_24hr():
+    check_in.send_24_hour_checks(report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
 
 @checkin.post('/24hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_24hr(id: str):
