@@ -27,6 +27,9 @@ def build_form(url: str, tech_details: TechDetails, sms_controller: SMSBaseContr
     }
     if isinstance(sms_controller, TextbeltController):
         url = f'{url}?{urllib.parse.urlencode(params)}'
+        # specific issue where Textbelt decodes #, breaking the url sent
+        if '#' in params['Site ID']:
+            url = url.replace('%23', '%2523')  # let textbelt decode only code %25 (% symbol), leaving code %23 (# symbol)
     else:
         url = f'{url}?{urllib.parse.urlencode(params, quote_via=urllib.parse.quote)}'
     logger.debug(url)
