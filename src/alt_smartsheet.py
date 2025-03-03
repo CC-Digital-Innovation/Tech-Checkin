@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 
 import phonenumbers
+from geopy.exc import GeocoderTimedOut
 from geopy.geocoders import GeoNames
 from loguru import logger
 from phonenumbers import PhoneNumber
@@ -61,15 +62,19 @@ class AllTrackerMixin:
         if geolocator:
             # get timezone from address
             postal_code = self.get_postal_code(row)
-            location = geolocator.geocode(postal_code, country='US')
-            if location is None:
-                city = self.get_cell_by_column_name(row, 'City').value
-                state = self.get_cell_by_column_name(row, 'State').value
-                location = geolocator.geocode(f'{city}, {state}', country='US')
+            try:
+                location = geolocator.geocode(postal_code, country='US')
                 if location is None:
-                    msg = f'Error geocoding from zip ({postal_code}) and city, state ({city}, {state}) on row #{row.row_number}.'
-                    logger.warning(msg)
-                    raise ValueError(msg)
+                    city = self.get_cell_by_column_name(row, 'City').value
+                    state = self.get_cell_by_column_name(row, 'State').value
+                    location = geolocator.geocode(f'{city}, {state}', country='US')
+                    if location is None:
+                        msg = f'Error geocoding from zip ({postal_code}) and city, state ({city}, {state}) on row #{row.row_number}.'
+                        logger.warning(msg)
+                        raise ValueError(msg)
+            except GeocoderTimedOut as e:
+                logger.exception(e)
+                raise ValueError(f'Error from geocode: {e}') from e
             reversed_timezone = geolocator.reverse_timezone((location.latitude, location.longitude))
             appt_datetime = reversed_timezone.pytz_timezone.localize(appt_datetime)
         return appt_datetime
