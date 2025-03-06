@@ -118,7 +118,7 @@ def get_1_hour_checks(report: AllTrackerReport, geolocator: GeoNames, sms_contro
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
             logger.error(error_msg)
             continue
-        if now < tech_details.appt_datetime < until:
+        if (now + timedelta(hours=1)) <= tech_details.appt_datetime < until:
             rows_to_check.append(OneHRPrecall(sched_time=tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1)),
                                             tech_details=tech_details,
                                             row=row))
@@ -158,7 +158,7 @@ def schedule_1_hour_checks(scheduler: BackgroundScheduler,
     checks = get_1_hour_checks(report, geolocator, sms_controller, until)
     for sched_time, tech_details, row in checks:
         logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
-        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])
+        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller], misfire_grace_time=300)
 
 def schedule_1_hour_check(scheduler: BackgroundScheduler,
                           id: str,
@@ -173,4 +173,4 @@ def schedule_1_hour_check(scheduler: BackgroundScheduler,
     sched_time = tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1))
     if sched_time < datetime.now(pytz.utc):
         raise ValueError(f'Cannot schedule in the past: {sched_time.isoformat()}')
-    return scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])
+    return scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller], misfire_grace_time=300)

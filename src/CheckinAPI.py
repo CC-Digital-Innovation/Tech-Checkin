@@ -7,6 +7,7 @@ from pathlib import PurePath
 import dotenv
 import phonenumbers
 from apscheduler.job import Job
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.jobstores.base import JobLookupError
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -44,12 +45,23 @@ N8N_WORKFLOW_ID = os.getenv('N8N_WORKFLOW_ID')
 GEONAMES_USER = os.environ['GEONAMES_USER']
 geolocator = GeoNames(username=GEONAMES_USER, timeout=300)
 
+# setup scheduler
+CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
+CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
+scheduler = BackgroundScheduler()
+
+# initialize SMS
 ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
 SMS_TOOL=os.getenv('SMS_TOOL', 'textbelt').lower()
 if SMS_TOOL == 'textbelt':
     TEXTBELT_KEY = os.environ['TEXTBELT_KEY']
     TEXTBELT_SENDER = os.environ['TEXTBELT_SENDER']
     sms_controller = TextbeltController(TEXTBELT_KEY, TEXTBELT_SENDER, ADMIN_PHONE_NUMBER)
+    # limit to one thread for introducing delays to prevent rate limits
+    executors = {
+        'default': ThreadPoolExecutor(1)
+    }
+    scheduler.configure(executors=executors)
 elif SMS_TOOL == 'twilio':
     TWILIO_API_SID = os.environ['TWILIO_API_SID']
     TWILIO_API_KEY = os.environ["TWILIO_API_KEY"]
@@ -59,10 +71,6 @@ elif SMS_TOOL == 'twilio':
 else:
     raise ValueError(f'SMS tool {SMS_TOOL} is not supported.')
 
-# setup scheduler
-CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
-CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
-scheduler = BackgroundScheduler()
 # schedule 1 hour calls inbetween deployment time and next scheduled 1 hour pre-calls (+1 minute to include any at cronjob time)
 check_in.schedule_1_hour_checks(scheduler, report, geolocator, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)) + timedelta(minutes=1))
 # add 24 and 1 hour check jobs using crontab expression

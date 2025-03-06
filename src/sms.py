@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 
 import requests
@@ -48,4 +49,5 @@ class TextbeltController(SMSBaseController):
         resp_json = resp.json()
         if not resp_json['success']:
             raise RuntimeError(resp_json['error'])
+        time.sleep(0.5)  # introduce slight delay due to rate limits (note does not stop separate threads/processes)
         return resp_json
