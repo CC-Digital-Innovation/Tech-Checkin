@@ -81,10 +81,19 @@ class AllTrackerMixin:
         return appt_datetime
 
     def get_appt_full_address(self, row: Row) -> str:
-        return ', '.join((self.get_cell_by_column_name(row, 'Address').value.replace(',', ''),
-                          self.get_cell_by_column_name(row, 'City').value,
-                          self.get_cell_by_column_name(row, 'State').value,
-                          self.get_postal_code(row)))
+        address = self.get_cell_by_column_name(row, 'Address').value
+        if address is None:
+            address = ''
+        else:
+            address = address.replace(',', '')
+        city = self.get_cell_by_column_name(row, 'City').value
+        if city is None:
+            city = ''
+        state = self.get_cell_by_column_name(row, 'State').value
+        if state is None:
+            state = ''
+        postal_code = self.get_postal_code(row)
+        return ', '.join((address, city, state, postal_code))
 
     def get_tech_name(self, row: Row) -> str:
         return self.get_cell_by_column_name(row, 'Tech Name (First and Last)').value
