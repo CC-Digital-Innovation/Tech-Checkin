@@ -19,6 +19,7 @@ class TechDetails:
     address: str
     appt_datetime: datetime
     work_market_num: str
+    work_order_num: str
 
 
 class AllTrackerMixin:
@@ -107,7 +108,13 @@ class AllTrackerMixin:
 
     def get_site_id(self, row: Row) -> str:
         return self.get_cell_by_column_name(row, 'SITE ID').value
-    
+
+    def get_work_order_num(self, row: Row) -> str:
+        try:
+            return str(int(self.get_cell_by_column_name(row, 'COMCAST PO').value))  # possible float, cast to int first to remove precision
+        except ValueError:
+            return str(self.get_cell_by_column_name(row, 'COMCAST PO').value)
+
     def get_work_market_num_id(self, row: Row) -> str:
         # cast to int first to remove trailing zero
         raw_result = self.get_cell_by_column_name(row, 'WORK MARKET #').value
@@ -128,7 +135,8 @@ class AllTrackerMixin:
             tech_contact=self.get_tech_contact(row),
             address=self.get_appt_full_address(row),
             appt_datetime=self.get_appt_datetime(row, geolocator),
-            work_market_num=self.get_work_market_num_id(row)
+            work_market_num=self.get_work_market_num_id(row),
+            work_order_num=self.get_work_order_num(row)
         )
 
 

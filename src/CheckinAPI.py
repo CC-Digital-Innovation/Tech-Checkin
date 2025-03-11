@@ -90,6 +90,7 @@ class Form(BaseModel):
     time: str
     location: str
     site_id: str
+    work_order_num: str
     work_market_num: str
     comment: str | None = None
 
@@ -118,6 +119,8 @@ def submit_form(form: Form):
         comments.append(f"Tech needs to be changed to {form.tech_name}.")
     if tech_details.site_id != form.site_id:
         comments.append(f"Site ID needs to be changed to {form.site_id}.")
+    if tech_details.work_order_num != form.work_order_num:
+        comments.append(f'WO# needs to be changed to {form.work_order_num}.')
     parsed_time = datetime.strptime(form.time, check_in.TIME_FORM_FORMAT).time()
     if tech_details.appt_datetime.time() != parsed_time:
         comments.append(f"Appointment time needs to be changed to {parsed_time.strftime(check_in.TIME_FORM_FORMAT)}.")
