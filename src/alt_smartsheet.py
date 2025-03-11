@@ -123,6 +123,8 @@ class AllTrackerMixin:
             return str(int(self.get_cell_by_column_name(row, 'COMCAST PO').value))  # possible float, cast to int first to remove precision
         except ValueError:
             return str(self.get_cell_by_column_name(row, 'COMCAST PO').value)
+        except TypeError:
+            return ''  # parsed None
 
     def get_work_market_num_id(self, row: Row) -> str:
         # cast to int first to remove trailing zero
