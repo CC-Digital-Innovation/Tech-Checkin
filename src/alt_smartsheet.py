@@ -85,11 +85,11 @@ class AllTrackerMixin:
         if address is None:
             address = ''
         else:
-            address = address.replace(',', '')
-        city = self.get_cell_by_column_name(row, 'City').value
+            address = address.strip().replace(',', '').replace('\n', ' ')
+        city = self.get_cell_by_column_name(row, 'City').value.strip()
         if city is None:
             city = ''
-        state = self.get_cell_by_column_name(row, 'State').value
+        state = self.get_cell_by_column_name(row, 'State').value.strip()
         if state is None:
             state = ''
         postal_code = self.get_postal_code(row)
