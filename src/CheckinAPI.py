@@ -175,10 +175,12 @@ class JobView(BaseModel):
 
 @checkin.post('/24hr', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_all_24hr():
+    report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
     check_in.send_24_hour_checks(report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
 
 @checkin.post('/24hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_24hr(id: str):
+    report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
     try:
         return check_in.send_24_hour_check(id, report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
     except ValueError as e:
@@ -190,6 +192,7 @@ def send_24hr(id: str):
 
 @checkin.post('/1hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_1hr(id: str):
+    report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
     try:
         row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
     except StopIteration:
@@ -204,6 +207,7 @@ def send_1hr(id: str):
 
 @checkin.post('/1hr/{id}/schedule', dependencies=[Depends(authorize)], tags=['SMS'])
 def schedule_1hr(id: str):
+    report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
     jobs = [JobView.from_job(job) for job in scheduler.get_jobs()]
     if any(job.wm_num == id for job in jobs):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1 hour pre-text is already scheduled.')
