@@ -18,13 +18,13 @@ TIME_FORM_FORMAT = '%H%M'
 
 def build_form(url: str, tech_details: TechDetails, sms_controller: SMSBaseController | None = None):
     params = {
+        "wmn" : tech_details.work_market_num,
         'Tech Name': tech_details.tech_name,
         'Date': tech_details.appt_datetime.date().isoformat(),
         'Time': tech_details.appt_datetime.time().strftime(TIME_FORM_FORMAT),
         'Location': tech_details.address,
         'Site ID': tech_details.site_id,
-        'Work Order': tech_details.work_order_num,
-        "Work Number - Please don't change" : tech_details.work_market_num
+        'Work Order': tech_details.work_order_num
     }
     if isinstance(sms_controller, TextbeltController):
         url = f'{url}?{urllib.parse.urlencode(params)}'
