@@ -102,7 +102,7 @@ def submit_form(form: Form):
     report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # get sheet updates
     #take above parameters and either correct row in smartsheet and/or @ person in resposible collumn for correction to be made
     try:
-        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == form.work_market_num)
+        row = next(row for row in report.rows if report.get_work_market_num_id(row) == form.work_market_num)
     except StopIteration:
         logger.error(f'Failed to handle form submission. Cannot find row with Work Market # of {form.work_market_num}.')
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f'Canont find row with Work Market # of {form.work_market_num}.')
@@ -194,7 +194,7 @@ def send_24hr(id: str):
 def send_1hr(id: str):
     report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
     try:
-        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+        row = next(row for row in report.rows if report.get_work_market_num_id(row) == id)
     except StopIteration:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f'Cannot find record with work market #{id}.')
     if report.get_24_hour_checkbox(row):

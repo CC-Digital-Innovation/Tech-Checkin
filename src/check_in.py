@@ -40,7 +40,7 @@ def send_24_hour_checks(report: AllTrackerReport, form_url: str, sms_controller:
     logger.info('Scheduling 24 hour checks...')
     # filter rows by tomorrow's date and unfinished checks
     tomorrow = date.today() + timedelta(days=1)
-    for row in report.get_rows():
+    for row in report.rows:
         if report.get_24_hour_checkbox(row):
             continue  # already checked
         try:
@@ -74,7 +74,7 @@ def send_24_hour_checks(report: AllTrackerReport, form_url: str, sms_controller:
 
 def send_24_hour_check(id: str, report: AllTrackerReport, form_url: str, sms_controller: SMSBaseController):
     try:
-        row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+        row = next(row for row in report.rows if report.get_work_market_num_id(row) == id)
     except StopIteration:
         raise ValueError(f'Cannot find record with work market #{id}.')
     if report.get_24_hour_checkbox(row):
@@ -108,7 +108,7 @@ def get_1_hour_checks(report: AllTrackerReport, sms_controller: SMSBaseControlle
     if until is None:
         until = now + timedelta(days=1)
     rows_to_check = []
-    for row in report.get_rows():
+    for row in report.rows:
         if report.get_1_hour_checkbox(row):
             continue  # already checked
         try:
@@ -165,7 +165,7 @@ def schedule_1_hour_check(scheduler: BackgroundScheduler,
                           report: AllTrackerReport,
                           sms_controller: SMSBaseController,
                           smartsheet_controller: SmartsheetController):
-    row = next(row for row in report.get_rows() if report.get_work_market_num_id(row) == id)
+    row = next(row for row in report.rows if report.get_work_market_num_id(row) == id)
     if report.get_24_hour_checkbox(row):
         raise ValueError(f'1HR Pre-call is already checked.')
     tech_details = report.get_tech_details(row)
