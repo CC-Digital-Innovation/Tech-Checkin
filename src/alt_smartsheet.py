@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time
+from functools import cache
 
 import phonenumbers
 from geopy.exc import GeocoderTimedOut
@@ -55,6 +56,15 @@ class AltSheet:
             self.row_updates[new_row.id] = new_row
 
 
+@cache
+def _cached_geocode(geolocator: GeoNames, query, country='US'):
+    return geolocator.geocode(query, country=country)
+
+@cache
+def _cached_reverse_timezone(geolocator: GeoNames, point):
+    return geolocator.reverse_timezone(point)
+
+
 class AllTrackerSheet(AltSheet):
     def __init__(self, sheet: Sheet, geolocator: GeoNames | None = None) -> 'AllTrackerSheet':
         super().__init__(sheet)
@@ -104,11 +114,11 @@ class AllTrackerSheet(AltSheet):
             # get timezone from address
             postal_code = self.get_postal_code(row)
             try:
-                location = self.geolocator.geocode(postal_code, country='US')
+                location = _cached_geocode(self.geolocator, postal_code)
                 if location is None:
                     city = self.get_cell_by_column_name(row, 'City').value
                     state = self.get_cell_by_column_name(row, 'State').value
-                    location = self.geolocator.geocode(f'{city}, {state}', country='US')
+                    location =  _cached_geocode(self.geolocator, f'{city}, {state}')
                     if location is None:
                         msg = f'Error geocoding from zip ({postal_code}) and city, state ({city}, {state}) on row #{row.row_number}.'
                         logger.warning(msg)
@@ -116,7 +126,7 @@ class AllTrackerSheet(AltSheet):
             except GeocoderTimedOut as e:
                 logger.exception(e)
                 raise ValueError(f'Error from geocode: {e}') from e
-            reversed_timezone = self.geolocator.reverse_timezone((location.latitude, location.longitude))
+            reversed_timezone = _cached_reverse_timezone(self.geolocator, (location.latitude, location.longitude))
             appt_datetime = reversed_timezone.pytz_timezone.localize(appt_datetime)
         return appt_datetime
 
