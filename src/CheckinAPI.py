@@ -30,19 +30,19 @@ API_KEY = os.getenv('API_KEY')
 LOGGING_LEVEL = os.getenv('LOGGING_LEVEL', 'INFO')
 logger.configure(handlers=[{'sink': sys.stderr, 'level': LOGGING_LEVEL}])
 
+# initalize geolocator
+GEONAMES_USER = os.environ['GEONAMES_USER']
+geolocator = GeoNames(username=GEONAMES_USER, timeout=300)
+
 # initialize smartsheet
 SMARTSHEET_REPORT_ID = os.environ['SMARTSHEET_REPORT_ID']
 ADMIN_EMAIL = os.getenv('ADMIN_EMAIL')  # Optional. Used to ping in smartsheets.
 smartsheet_controller = SmartsheetController()
-report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # test access
+report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID, geolocator)  # test access
 
 # Initialize N8N global environment variables.
 N8N_BASE_URL = os.getenv('N8N_BASE_URL')
 N8N_WORKFLOW_ID = os.getenv('N8N_WORKFLOW_ID')
-
-# initalize geolocator
-GEONAMES_USER = os.environ['GEONAMES_USER']
-geolocator = GeoNames(username=GEONAMES_USER, timeout=300)
 
 ADMIN_PHONE_NUMBER = os.getenv('ADMIN_PHONE_NUMBER')
 SMS_TOOL=os.getenv('SMS_TOOL', 'textbelt').lower()
@@ -64,10 +64,10 @@ CRONJOB_24_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_24_CHECKS'])
 CRONJOB_1_CHECKS = CronTrigger.from_crontab(os.environ['CRONJOB_1_CHECKS'])
 scheduler = BackgroundScheduler()
 # schedule 1 hour calls inbetween deployment time and next scheduled 1 hour pre-calls (+1 minute to include any at cronjob time)
-check_in.schedule_1_hour_checks(scheduler, report, geolocator, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)) + timedelta(minutes=1))
+check_in.schedule_1_hour_checks(scheduler, report, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)) + timedelta(minutes=1))
 # add 24 and 1 hour check jobs using crontab expression
-cron_24hr_job = scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
-cron_1hr_job = scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, geolocator, sms_controller, smartsheet_controller])
+cron_24hr_job = scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
+cron_1hr_job = scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, sms_controller, smartsheet_controller])
 scheduler.start()
 
 #init app - rename with desired app name
@@ -133,7 +133,7 @@ def submit_form(form: Form):
     if not comments:
         report.set_24_hour_checkbox(row, True)
         logger.info(f'Appointment {form.work_market_num} is correct. Updating 24 HR Pre-call checkbox...')
-        smartsheet_controller.update_report_rows(report)
+        smartsheet_controller.update_rows(report)
 
     # regardless of correctness, accept addtional comments
     if form.comment:
@@ -176,13 +176,13 @@ class JobView(BaseModel):
 @checkin.post('/24hr', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_all_24hr():
     report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
-    check_in.send_24_hour_checks(report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
+    check_in.send_24_hour_checks(report, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
 
 @checkin.post('/24hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_24hr(id: str):
     report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID)  # updated report
     try:
-        return check_in.send_24_hour_check(id, report, geolocator, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
+        return check_in.send_24_hour_check(id, report, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
     except ValueError as e:
         logger.error(e)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e)) from e
@@ -200,7 +200,7 @@ def send_1hr(id: str):
     if report.get_24_hour_checkbox(row):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1HR Pre-call is already checked.')
     try:
-        tech_details = report.get_tech_details(row, geolocator)
+        tech_details = report.get_tech_details(row)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f'Could not send 1 hour pre-text while parsing row #{row.row_number}. Error: {e}.')
     return check_in.send_1_hour_check(tech_details, sms_controller, row, report, smartsheet_controller)
@@ -212,7 +212,7 @@ def schedule_1hr(id: str):
     if any(job.wm_num == id for job in jobs):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1 hour pre-text is already scheduled.')
     try:
-        return JobView.from_job(check_in.schedule_1_hour_check(scheduler, id, report, geolocator, sms_controller, smartsheet_controller))
+        return JobView.from_job(check_in.schedule_1_hour_check(scheduler, id, report, sms_controller, smartsheet_controller))
     except StopIteration:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f'Cannot find record with work market #{id}.')
     except ValueError as e:

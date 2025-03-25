@@ -7,8 +7,8 @@ from geopy.geocoders import GeoNames
 from loguru import logger
 from phonenumbers import PhoneNumber
 from smartsheet import Smartsheet
-from smartsheet.models import (Cell, Column, Comment, Discussion, Report,
-                               ReportRow, Row)
+from smartsheet.models import (Cell, Comment, Discussion, Report, ReportRow,
+                               Row, Sheet)
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,9 +22,49 @@ class TechDetails:
     work_order_num: str
 
 
-class AllTrackerMixin:
-    def get_cell_by_column_name(self):
-        raise NotImplementedError('required function for mixin.')
+class AltSheet:
+    def __init__(self, sheet: Sheet):
+        self.sheet = sheet
+        self.rows = sheet.rows
+        self.columns = sheet.columns
+        # The API identifies columns by Id, but it's more convenient to refer to column names
+        self._column_map = {column.title: column.id for column in sheet.columns}
+        # Keeps a running track of updates using row ID as keys and the row object as values
+        # When running update_rows, use list(row_updates.values())
+        self.row_updates = {}
+
+    # Helper function to find cell in a row
+    def get_cell_by_column_name(self, row, column_name) -> Cell:
+        column_id = self._column_map[column_name]
+        return row.get_column(column_id)
+
+    def set_checkbox(self, row: Row, column_name: str, status: bool):
+        # build new cell
+        new_cell = Cell()
+        new_cell.column_id = self._column_map[column_name]
+        new_cell.value = status
+
+        try:
+            # get existing row to update and append cells
+            self.row_updates[row.id].cells.append(new_cell)
+        except KeyError:
+            # build row to update
+            new_row = Row()
+            new_row.id = row.id
+            new_row.cells.append(new_cell)
+            self.row_updates[new_row.id] = new_row
+
+
+class AllTrackerSheet(AltSheet):
+    def __init__(self, sheet: Sheet, geolocator: GeoNames | None = None) -> 'AllTrackerSheet':
+        super().__init__(sheet)
+        self.geolocator = geolocator
+
+    def set_24_hour_checkbox(self, row: Row, status: bool):
+        self.set_checkbox(row, '24 HR Pre-call', status)
+
+    def set_1_hour_checkbox(self, row: Row, status: bool):
+        self.set_checkbox(row, '1 HR Pre-call', status)
 
     def get_24_hour_checkbox(self, row: Row) -> bool:
         return bool(self.get_cell_by_column_name(row, '24 HR Pre-call').value)
@@ -54,21 +94,21 @@ class AllTrackerMixin:
     def get_appt_date(self, row: Row) -> date:
         return date.fromisoformat(self.get_cell_by_column_name(row, 'Secured Date').value)
 
-    def get_appt_datetime(self, row: Row, geolocator: GeoNames | None = None) -> datetime:
+    def get_appt_datetime(self, row: Row) -> datetime:
         appt_date = self.get_appt_date(row)
         appt_time = int(self.get_cell_by_column_name(row, 'Secured Time').value)
         hour = appt_time // 100
         minute = appt_time % 100
         appt_datetime = datetime.combine(appt_date, time(hour, minute))
-        if geolocator:
+        if self.geolocator is not None:
             # get timezone from address
             postal_code = self.get_postal_code(row)
             try:
-                location = geolocator.geocode(postal_code, country='US')
+                location = self.geolocator.geocode(postal_code, country='US')
                 if location is None:
                     city = self.get_cell_by_column_name(row, 'City').value
                     state = self.get_cell_by_column_name(row, 'State').value
-                    location = geolocator.geocode(f'{city}, {state}', country='US')
+                    location = self.geolocator.geocode(f'{city}, {state}', country='US')
                     if location is None:
                         msg = f'Error geocoding from zip ({postal_code}) and city, state ({city}, {state}) on row #{row.row_number}.'
                         logger.warning(msg)
@@ -76,7 +116,7 @@ class AllTrackerMixin:
             except GeocoderTimedOut as e:
                 logger.exception(e)
                 raise ValueError(f'Error from geocode: {e}') from e
-            reversed_timezone = geolocator.reverse_timezone((location.latitude, location.longitude))
+            reversed_timezone = self.geolocator.reverse_timezone((location.latitude, location.longitude))
             appt_datetime = reversed_timezone.pytz_timezone.localize(appt_datetime)
         return appt_datetime
 
@@ -140,64 +180,19 @@ class AllTrackerMixin:
                 raise ValueError(f"Work market number ran into an uncaught exception case: {e}") from e
         return str(result)
 
-    def get_tech_details(self, row: Row, geolocator: GeoNames | None = None) -> TechDetails:
+    def get_tech_details(self, row: Row, datetime_: datetime | None = None) -> TechDetails:
         return TechDetails(
             site_id=self.get_site_id(row),
             tech_name=self.get_tech_name(row),
             tech_contact=self.get_tech_contact(row),
             address=self.get_appt_full_address(row),
-            appt_datetime=self.get_appt_datetime(row, geolocator),
+            appt_datetime=self.get_appt_datetime(row) if datetime_ is None else datetime_,
             work_market_num=self.get_work_market_num_id(row),
             work_order_num=self.get_work_order_num(row)
         )
 
 
-class Sheet:
-    def __init__(self, sheet):
-        self.sheet = sheet
-        # The API identifies columns by Id, but it's more convenient to refer to column names
-        self._column_map = {column.title: column.id for column in sheet.columns}
-        # Keeps a running track of updates using row ID as keys and the row object as values
-        # When running update_rows, use list(row_updates.values())
-        self.row_updates = {}
-
-    # Helper function to find cell in a row
-    def get_cell_by_column_name(self, row, column_name) -> Cell:
-        column_id = self._column_map[column_name]
-        return row.get_column(column_id)
-    
-    def get_rows(self) -> list[Row]:
-        return self.sheet.rows
-    
-    def get_columns(self) -> list[Column]:
-        return self.sheet.columns
-
-    def set_checkbox(self, row: Row, column_name: str, status: bool):
-        # build new cell
-        new_cell = Cell()
-        new_cell.column_id = self._column_map[column_name]
-        new_cell.value = status
-
-        try:
-            # get existing row to update and append cells
-            self.row_updates[row.id].cells.append(new_cell)
-        except KeyError:
-            # build row to update
-            new_row = Row()
-            new_row.id = row.id
-            new_row.cells.append(new_cell)
-            self.row_updates[new_row.id] = new_row
-
-
-class AllTrackerSheet(Sheet, AllTrackerMixin):
-    def set_24_hour_checkbox(self, row: Row, status: bool):
-        self.set_checkbox(row, '24 HR Pre-call', status)
-
-    def set_1_hour_checkbox(self, row: Row, status: bool):
-        self.set_checkbox(row, '1 HR Pre-call', status)
-
-
-class Report(Sheet):
+class AltReport(AltSheet):
     def __init__(self, report: Report):
         self.discussions = report.discussions
         self.source_sheets = {src_sheet.id: AllTrackerSheet(src_sheet) for src_sheet in report.source_sheets}
@@ -213,7 +208,11 @@ class Report(Sheet):
         sheet.set_checkbox(row, column_name, status)
 
 
-class AllTrackerReport(Report, AllTrackerMixin):
+class AllTrackerReport(AltReport, AllTrackerSheet):
+    def __init__(self, report: Report, geolocator: GeoNames | None = None):
+        super().__init__(report)
+        self.geolocator = geolocator
+
     def set_24_hour_checkbox(self, row: ReportRow, status: bool):
         sheet = self.source_sheets[row.sheet_id]
         sheet.set_checkbox(row, '24 HR Pre-call', status)
@@ -228,19 +227,21 @@ class SmartsheetController:
         self.client = Smartsheet(access_token)
         self.client.errors_as_exceptions(True)
 
-    def get_sheet(self, sheet_id) -> AllTrackerSheet:
-        return AllTrackerSheet(self.client.Sheets.get_sheet(sheet_id))
+    def get_sheet(self, sheet_id: str, geolocator: GeoNames | None = None) -> AllTrackerSheet:
+        return AllTrackerSheet(self.client.Sheets.get_sheet(sheet_id), geolocator)
 
-    def get_report(self, report_id) -> AllTrackerReport:
-        return AllTrackerReport(self.client.Reports.get_report(report_id, include=['sourceSheets']))
+    def get_report(self, report_id: str, geolocator: GeoNames | None = None) -> AllTrackerReport:
+        return AllTrackerReport(self.client.Reports.get_report(report_id, include=['sourceSheets']), geolocator)
 
-    def update_rows(self, sheet):
-        if sheet.row_updates:
-            return self.client.Sheets.update_rows(sheet.sheet.id, list(sheet.row_updates.values()))
-
-    def update_report_rows(self, report: Report):
-        for sheet in report.source_sheets.values():
-            self.update_rows(sheet)
+    def update_rows(self, sheet: AllTrackerSheet | AllTrackerReport):
+        try:
+            # update report
+            for s in sheet.source_sheets.values():
+                self.update_rows(s)
+        except AttributeError:
+            # update sheet
+            if sheet.row_updates:
+                return self.client.Sheets.update_rows(sheet.sheet.id, list(sheet.row_updates.values()))
 
     def get_discussions(self, sheet_id):
         response = self.client.Discussions.get_all_discussions(sheet_id, include_all=True)
