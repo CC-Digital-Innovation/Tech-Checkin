@@ -115,18 +115,22 @@ def submit_form(form: Form):
     # compare fields for changes
     tech_details = report.get_tech_details(row)
     comments = []  # will take advantage of join() function
-    if tech_details.tech_name != form.tech_name:
+    if tech_details.tech_name.lower() != form.tech_name.lower():
         comments.append(f"Tech needs to be changed to {form.tech_name}.")
-    if tech_details.site_id != form.site_id:
+    if tech_details.site_id.lower() != form.site_id.lower():
         comments.append(f"Site ID needs to be changed to {form.site_id}.")
     if tech_details.work_order_num != form.work_order_num:
-        comments.append(f'WO# needs to be changed to {form.work_order_num}.')
+        if form.work_order_num == '':
+            # avoid commenting on empty WO#
+            logger.info('Form has empty WO#. WO# must have been added recently.')
+        else:
+            comments.append(f'WO# needs to be changed to {form.work_order_num}.')
     parsed_time = datetime.strptime(form.time, check_in.TIME_FORM_FORMAT).time()
     if tech_details.appt_datetime.time() != parsed_time:
         comments.append(f"Appointment time needs to be changed to {parsed_time.strftime(check_in.TIME_FORM_FORMAT)}.")
     if tech_details.appt_datetime.date() != form.date:
         comments.append(f"Appointment date needs to be changed to {form.date}.")
-    if tech_details.address != form.location:
+    if tech_details.address.lower() != form.location.lower():
         comments.append(f"Address needs to be changed to {form.location}.")
 
     # no comments means no changes were found, mark 24 hr check complete
