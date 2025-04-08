@@ -166,10 +166,15 @@ def schedule_1_hour_check(scheduler: BackgroundScheduler,
                           sms_controller: SMSBaseController,
                           smartsheet_controller: SmartsheetController):
     row = next(row for row in report.rows if report.get_work_market_num_id(row) == id)
-    if report.get_24_hour_checkbox(row):
+    if report.get_1_hour_checkbox(row):
         raise ValueError(f'1HR Pre-call is already checked.')
     tech_details = report.get_tech_details(row)
-    sched_time = tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1))
-    if sched_time < datetime.now(pytz.utc):
-        raise ValueError(f'Cannot schedule in the past: {sched_time.isoformat()}')
+    if report.geolocator is not None:
+        sched_time = tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1))
+        if sched_time < datetime.now(pytz.utc):
+            raise ValueError(f'Cannot schedule in the past: {sched_time.isoformat()}')
+    else:
+        sched_time = tech_details.appt_datetime - timedelta(hours=1)
+        if sched_time < datetime.now(pytz.utc).replace(tzinfo=None):
+            raise ValueError(f'Cannot schedule in the past: {sched_time.isoformat()}')
     return scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])
