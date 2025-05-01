@@ -147,7 +147,7 @@ class AllTrackerSheet(AltSheet):
         return ', '.join((address, city, state, postal_code))
 
     def get_tech_name(self, row: Row) -> str:
-        return self.get_cell_by_column_name(row, 'Tech Name (First and Last)').value
+        return str(self.get_cell_by_column_name(row, 'Tech Name (First and Last)').value)
 
     def get_tech_contact(self, row: Row, region: str = 'US') -> str:
         query = self.get_cell_by_column_name(row, 'Tech Phone #').value
@@ -167,7 +167,7 @@ class AllTrackerSheet(AltSheet):
         return parsed_num
 
     def get_site_id(self, row: Row) -> str:
-        return self.get_cell_by_column_name(row, 'SITE ID').value
+        return str(self.get_cell_by_column_name(row, 'SITE ID').value)
 
     def get_work_order_num(self, row: Row) -> str:
         try:
