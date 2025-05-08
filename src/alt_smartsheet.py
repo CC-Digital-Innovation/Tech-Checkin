@@ -188,6 +188,9 @@ class AllTrackerSheet(AltSheet):
                 result = int(split[-1])
             except Exception as e:
                 raise ValueError(f"Work market number ran into an uncaught exception case: {e}") from e
+        except TypeError:
+            logger.warning(f'Work market number is None or cannot be parsed at row #{row.row_number}')
+            return ''
         return str(result)
 
     def get_tech_details(self, row: Row, datetime_: datetime | None = None) -> TechDetails:
