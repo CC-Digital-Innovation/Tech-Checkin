@@ -36,8 +36,9 @@ def build_form(url: str, tech_details: TechDetails, sms_controller: SMSBaseContr
     logger.debug(url)
     return url
 
-def send_24_hour_checks(report: AllTrackerReport, form_url: str, sms_controller: SMSBaseController):
+def send_24_hour_checks(smartsheet_controller: SmartsheetController, report_id: int, form_url: str, sms_controller: SMSBaseController, geolocator: GeoNames | None):
     logger.info('Scheduling 24 hour checks...')
+    report = smartsheet_controller.get_report(report_id, geolocator)  # updated report
     # filter rows by tomorrow's date and unfinished checks
     tomorrow = date.today() + timedelta(days=1)
     for row in report.rows:

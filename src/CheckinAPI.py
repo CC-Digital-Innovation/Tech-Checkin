@@ -66,7 +66,7 @@ scheduler = BackgroundScheduler()
 # schedule 1 hour calls inbetween deployment time and next scheduled 1 hour pre-calls (+1 minute to include any at cronjob time)
 check_in.schedule_1_hour_checks(scheduler, report, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)) + timedelta(minutes=1))
 # add 24 and 1 hour check jobs using crontab expression
-cron_24hr_job = scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[report, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller])
+cron_24hr_job = scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[smartsheet_controller, SMARTSHEET_REPORT_ID, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller, geolocator])
 cron_1hr_job = scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, sms_controller, smartsheet_controller])
 scheduler.start()
 
@@ -179,8 +179,7 @@ class JobView(BaseModel):
 
 @checkin.post('/24hr', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_all_24hr():
-    report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID, geolocator)  # updated report
-    check_in.send_24_hour_checks(report, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller)
+    check_in.send_24_hour_checks(smartsheet_controller, SMARTSHEET_REPORT_ID, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller, geolocator)
 
 @checkin.post('/24hr/{id}', dependencies=[Depends(authorize)], tags=['SMS'])
 def send_24hr(id: str):
