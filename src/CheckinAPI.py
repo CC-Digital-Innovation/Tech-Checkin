@@ -67,7 +67,7 @@ scheduler = BackgroundScheduler()
 check_in.schedule_1_hour_checks(scheduler, report, sms_controller, smartsheet_controller, CRONJOB_1_CHECKS.get_next_fire_time(None, datetime.now(timezone.utc)) + timedelta(minutes=1))
 # add 24 and 1 hour check jobs using crontab expression
 cron_24hr_job = scheduler.add_job(check_in.send_24_hour_checks, CRONJOB_24_CHECKS, args=[smartsheet_controller, SMARTSHEET_REPORT_ID, f'{N8N_BASE_URL}/{N8N_WORKFLOW_ID}', sms_controller, geolocator])
-cron_1hr_job = scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, report, sms_controller, smartsheet_controller])
+cron_1hr_job = scheduler.add_job(check_in.schedule_1_hour_checks, CRONJOB_1_CHECKS, args=[scheduler, smartsheet_controller, SMARTSHEET_REPORT_ID, geolocator, sms_controller])
 scheduler.start()
 
 #init app - rename with desired app name

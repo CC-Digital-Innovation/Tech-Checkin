@@ -150,12 +150,14 @@ def send_1_hour_check(tech_details: TechDetails,
     }
 
 def schedule_1_hour_checks(scheduler: BackgroundScheduler,
-                           report: AllTrackerReport,
-                           sms_controller: SMSBaseController,
                            smartsheet_controller: SmartsheetController,
+                           report_id: str,
+                           geolocator: GeoNames,
+                           sms_controller: SMSBaseController,
                            until: datetime | None = None):
     logger.info('Scheduling 1 hour checks...')
     # get 1 hour checks for the day
+    report = smartsheet_controller.get_report(report_id, geolocator)  # updated report
     checks = get_1_hour_checks(report, sms_controller, until)
     for sched_time, tech_details, row in checks:
         logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
