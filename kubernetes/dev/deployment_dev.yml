@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tech-checkin-dev
+  namespace: tech-checkin-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tech-checkin-dev
+  template:
+    metadata:
+      annotations:
+        vault.hashicorp.com/agent-inject: 'true'
+        vault.hashicorp.com/role: 'tech-checkin-dev'
+        vault.hashicorp.com/agent-inject-secret-tech-checkin-dev: 'dev/tech-checkin'
+        vault.hashicorp.com/agent-inject-template-tech-checkin-dev: |
+          {{- with secret "dev/tech-checkin" -}}
+            export API_KEY="{{ .Data.data.API_KEY }}"
+            export N8N_BASE_URL="{{ .Data.data.N8N_BASE_URL }}"
+            export N8N_WORKFLOW_ID="{{ .Data.data.N8N_WORKFLOW_ID }}"
+            export SMARTSHEET_ACCESS_TOKEN="{{ .Data.data.SMARTSHEET_ACCESS_TOKEN }}"
+            export SMARTSHEET_REPORT_ID="{{ .Data.data.SMARTSHEET_REPORT_ID }}"
+            export GEONAMES_USER="{{ .Data.data.GEONAMES_USER }}"
+            export CRONJOB_24_CHECKS="{{ .Data.data.CRONJOB_24_CHECKS }}"
+            export CRONJOB_1_CHECKS="{{ .Data.data.CRONJOB_1_CHECKS }}"
+            export SMS_TOOL="{{ .Data.data.SMS_TOOL }}"
+            export TEXTBELT_KEY="{{ .Data.data.TEXTBELT_KEY }}"
+            export TEXTBELT_SENDER="{{ .Data.data.TEXTBELT_SENDER }}"
+            export TWILIO_ACCOUNT_SID="{{ .Data.data.TWILIO_ACCOUNT_SID }}"
+            export TWILIO_API_SID="{{ .Data.data.TWILIO_API_SID }}"
+            export TWILIO_API_KEY="{{ .Data.data.TWILIO_API_KEY }}"
+            export TWILIO_FROM="{{ .Data.data.TWILIO_FROM }}"
+            export ADMIN_EMAIL="{{ .Data.data.ADMIN_EMAIL }}"
+            export ADMIN_PHONE_NUMBER="{{ .Data.data.ADMIN_PHONE_NUMBER }}"
+            export LOGGING_LEVEL="{{ .Data.data.LOGGING_LEVEL }}"
+          {{- end }}
+        vault.hashicorp.com/agent-pre-populate-only: 'true'
+        vault.hashicorp.com/ca-cert: /run/secrets/kubernetes.io/serviceaccount/ca.crt
+      labels:
+        app: tech-checkin-dev
+    spec:
+      securityContext:
+        - runAsNonRoot: 'true'
+          runAsUser: 10014
+          runAsGroup: 10015
+      containers:
+        - image: harbor.pscp-css.support/dev/techcheckin:dev
+          imagePullSecrets:
+            - name: tech-checkin-registry-secret
+          name: tech-checkin-dev
+          args: ['/bin/bash', '-c', 'source /vault/dev/tech-checkin && uvicorn CheckinAPI:checkin --host 0.0.0.0 --port 8000 --root-path /tech-checkin-dev']
+          ports:
+            - containerPort: 8000
+          securityContext:
+            - allowPrivilegeEscalation: 'false'
+              capabilities:
+                drop:
+                  - ALL
+              readOnlyRootFilesystem: 'true'
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1024Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      serviceAccountName: tech-checkin-dev
