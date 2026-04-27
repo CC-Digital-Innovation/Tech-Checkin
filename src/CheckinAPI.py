@@ -90,8 +90,8 @@ class Form(BaseModel):
     time: str
     location: str
     site_id: str
-    work_order_num: str
     work_market_num: str
+    work_order_num: str | None = None
     comment: str | None = None
 
 
