@@ -1,0 +1,7 @@
+repo: https://github.com/CC-Digital-Innovation/Tech-Checkin.git
+ssh_url: git@github.com:CC-Digital-Innovation/Tech-Checkin.git
+branch: dev
+project_root: src
+image: tech-checkin-dev
+manifest_path: infra/cd/dev/deployment_dev.yml
+pipeline: tech-checkin-dev
