@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: tech-checkin
+  namespace: tech-checkin
 spec:
   selector:
     app: tech-checkin
