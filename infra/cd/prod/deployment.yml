@@ -44,8 +44,6 @@ spec:
         runAsNonRoot: true
         runAsUser: 10014
         runAsGroup: 10015
-      imagePullSecrets:
-        - name: tech-checkin-registry-secret
       containers:
         - image: harbor.pscp-css.support/library/tech-checkin:0.0.31
           name: tech-checkin
