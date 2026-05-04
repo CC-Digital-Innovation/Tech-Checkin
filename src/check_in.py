@@ -140,7 +140,7 @@ def send_1_hour_check(tech_details: TechDetails,
     logger.info(f'Sending 1 hour pre-call to {send_to}.')
     try:
         resp = sms_controller.send_text(send_to,
-                                        f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+                                        f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is at {tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}!')
     except RuntimeError as e:
         logger.error(f'Could not send 1 hour pre-text for row #{row.row_number}: "{e}"')
         return
