@@ -5,6 +5,7 @@ The Tech checkin schedules texts to be sent 24 hours prior to an appointment to 
 ## Platforms
 * n8n: Hosts the form and sends the results back to the code
 * Kubernetes: Hosts the api and job scheduling and n8n
+* texbelt: handles texting form links and reminders
 * Concourse/Argo: CI/CD
 
 ## Code Flow
@@ -32,6 +33,6 @@ flowchart TD
 * pydantic: Class and Data Modeling
 * python-dotenv: env reader
 * pytz: handle timezones
-* requests
+* requests: sending http requests to textbelt
 * smartsheet-python-sdk
 * uvicorn: serve fast api
