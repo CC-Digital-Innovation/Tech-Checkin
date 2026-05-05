@@ -121,7 +121,12 @@ def get_1_hour_checks(report: AllTrackerReport, sms_controller: SMSBaseControlle
             logger.error(error_msg)
             continue
         if now < tech_details.appt_datetime < until:
-            rows_to_check.append(OneHRPrecall(sched_time=tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1)),
+            if now <= tech_details.appt_datetime <= now + timedelta(hours=1):
+                rows_to_check.append(OneHRPrecall(sched_time=now,
+                                            tech_details=tech_details,
+                                            row=row))
+            else:
+                rows_to_check.append(OneHRPrecall(sched_time=tech_details.appt_datetime.tzinfo.normalize(tech_details.appt_datetime - timedelta(hours=1)),
                                             tech_details=tech_details,
                                             row=row))
     return rows_to_check
@@ -135,7 +140,7 @@ def send_1_hour_check(tech_details: TechDetails,
     logger.info(f'Sending 1 hour pre-call to {send_to}.')
     try:
         resp = sms_controller.send_text(send_to,
-                                        f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is in one hour!')
+                                        f'Reminder that your appointment (ID {tech_details.site_id}) at {tech_details.address} is at {tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}!')
     except RuntimeError as e:
         logger.error(f'Could not send 1 hour pre-text for row #{row.row_number}: "{e}"')
         return
@@ -161,7 +166,7 @@ def schedule_1_hour_checks(scheduler: BackgroundScheduler,
     checks = get_1_hour_checks(report, sms_controller, until)
     for sched_time, tech_details, row in checks:
         logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
-        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])
+        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller], misfire_grace_time=300)
 
 def schedule_1_hour_check(scheduler: BackgroundScheduler,
                           id: str,

@@ -240,11 +240,11 @@ class SmartsheetController:
         self.client = Smartsheet(access_token)
         self.client.errors_as_exceptions(True)
 
-    def get_sheet(self, sheet_id: str, geolocator: GeoNames | None = None) -> AllTrackerSheet:
-        return AllTrackerSheet(self.client.Sheets.get_sheet(sheet_id), geolocator)
+    def get_sheet(self, sheet_id: str, geolocator: GeoNames | None = None, page_size: int = 10000) -> AllTrackerSheet:
+        return AllTrackerSheet(self.client.Sheets.get_sheet(sheet_id, page_size=page_size), geolocator)
 
-    def get_report(self, report_id: str, geolocator: GeoNames | None = None) -> AllTrackerReport:
-        return AllTrackerReport(self.client.Reports.get_report(report_id, include=['sourceSheets']), geolocator)
+    def get_report(self, report_id: str, geolocator: GeoNames | None = None, page_size: int = 10000) -> AllTrackerReport:
+        return AllTrackerReport(self.client.Reports.get_report(report_id, include=['sourceSheets'], page_size=page_size), geolocator)
 
     def update_rows(self, sheet: AllTrackerSheet | AllTrackerReport):
         try:
