@@ -200,7 +200,7 @@ def send_1hr(id: str):
         row = next(row for row in report.rows if report.get_work_market_num_id(row) == id)
     except StopIteration:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f'Cannot find record with work market #{id}.')
-    if report.get_24_hour_checkbox(row):
+    if report.get_1_hour_checkbox(row):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, f'1HR Pre-call is already checked.')
     try:
         tech_details = report.get_tech_details(row)
