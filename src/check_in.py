@@ -110,6 +110,8 @@ def get_1_hour_checks(report: AllTrackerReport, sms_controller: SMSBaseControlle
         until = now + timedelta(days=1)
     rows_to_check = []
     for row in report.rows:
+        if report.get_appt_date(row) != date.today():
+            continue
         if report.get_1_hour_checkbox(row):
             continue  # already checked
         try:
