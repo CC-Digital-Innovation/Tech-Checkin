@@ -166,7 +166,7 @@ def schedule_1_hour_checks(scheduler: BackgroundScheduler,
     checks = get_1_hour_checks(report, sms_controller, until)
     for sched_time, tech_details, row in checks:
         logger.info(f'Scheduling 1 hour pre-call for {tech_details.work_market_num} @ {sched_time}.')
-        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller])
+        scheduler.add_job(send_1_hour_check, trigger='date', run_date=sched_time, args=[tech_details, sms_controller, row, report, smartsheet_controller], misfire_grace_time=300)
 
 def schedule_1_hour_check(scheduler: BackgroundScheduler,
                           id: str,
