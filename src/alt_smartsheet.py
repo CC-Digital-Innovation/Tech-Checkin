@@ -101,8 +101,10 @@ class AllTrackerSheet(AltSheet):
             postal_code = ('0' * (5 - len(postal_code))) + postal_code
         return postal_code
 
-    def get_appt_date(self, row: Row) -> date:
-        return date.fromisoformat(self.get_cell_by_column_name(row, 'Secured Date').value)
+    def get_appt_date(self, row: Row) -> date | None:
+        raw_date = self.get_cell_by_column_name(row, 'Secured Date').value
+        if raw_date:
+            return date.fromisoformat(raw_date)
 
     def get_appt_datetime(self, row: Row) -> datetime:
         appt_date = self.get_appt_date(row)
@@ -203,6 +205,9 @@ class AllTrackerSheet(AltSheet):
             work_market_num=self.get_work_market_num_id(row),
             work_order_num=self.get_work_order_num(row)
         )
+
+    def get_primary(self, row: Row) -> str:
+        return str(self.get_cell_by_column_name(row, 'Primary').value)
 
 
 class AltReport(AltSheet):

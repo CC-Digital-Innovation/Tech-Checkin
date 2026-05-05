@@ -114,8 +114,8 @@ def get_1_hour_checks(report: AllTrackerReport, sms_controller: SMSBaseControlle
             continue  # already checked
         try:
             tech_details = report.get_tech_details(row)
-        except ValueError as e:
-            error_msg = f'Could not schedule 1 hour pre-text while parsing row #{row.row_number}. Error: "{e}"'
+        except (ValueError, TypeError) as e:
+            error_msg = f'Could not parse row {report.get_primary(row)}. Error: "{e}"'
             if sms_controller.admin_num:
                 sms_controller.send_text(sms_controller.admin_num, error_msg)
             logger.error(error_msg)
