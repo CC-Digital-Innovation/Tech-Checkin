@@ -206,9 +206,6 @@ class AllTrackerSheet(AltSheet):
             work_order_num=self.get_work_order_num(row)
         )
 
-    def get_primary(self, row: Row) -> str:
-        return str(self.get_cell_by_column_name(row, 'Primary').value)
-
 
 class AltReport(AltSheet):
     def __init__(self, report: Report):

@@ -117,14 +117,14 @@ def get_1_hour_checks(report: AllTrackerReport, sms_controller: SMSBaseControlle
         try:
             appt_datetime = report.get_appt_datetime(row)
         except (ValueError, TypeError) as e:
-            error_msg = f'Error parsing datetime for row {report.get_primary(row)}: "{e}"'
+            error_msg = f'Error parsing datetime for row {report.get_site_id(row)}: "{e}"'
             logger.error(error_msg)
             continue
         if now <= appt_datetime < until:
             try:
                 tech_details = report.get_tech_details(row)
             except (ValueError, TypeError) as e:
-                error_msg = f'Could not parse row {report.get_primary(row)}. Error: "{e}"'
+                error_msg = f'Could not parse row {report.get_site_id(row)}. Error: "{e}"'
                 if sms_controller.admin_num:
                     sms_controller.send_text(sms_controller.admin_num, error_msg)
                 logger.error(error_msg)
