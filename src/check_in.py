@@ -106,12 +106,14 @@ class OneHRPrecall(NamedTuple):
 def get_1_hour_checks(report: AllTrackerReport, sms_controller: SMSBaseController, until: datetime | None = None) -> list[tuple[datetime, TechDetails]]:
     # filter rows by today's date and unfinished checks
     now = datetime.now(pytz.utc)
+    today = date.today()
+    tomorrow = today + timedelta(days=1)
     if until is None:
         until = now + timedelta(days=1)
     rows_to_check = []
     for row in report.rows:
-        if report.get_appt_date(row) != date.today():
-            continue
+        if report.get_appt_date(row) != today and report.get_appt_date(row) != tomorrow:
+            continue  # not scheduled today and tomorrow (morning) so skip
         if report.get_1_hour_checkbox(row):
             continue  # already checked
         try:
