@@ -98,6 +98,9 @@ class Form(BaseModel):
 @checkin.post('/forms/submit', dependencies=[Depends(authorize)], tags=['Forms'])
 def submit_form(form: Form):
     logger.debug(form)
+    if form.work_market_num == '':
+        logger.error('Form submission is missing Work Market #.')
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Work Market # is required.')
     logger.info(f'Form submitted for {form.work_market_num}')
     report = smartsheet_controller.get_report(SMARTSHEET_REPORT_ID, geolocator)  # get sheet updates
     #take above parameters and either correct row in smartsheet and/or @ person in resposible collumn for correction to be made
