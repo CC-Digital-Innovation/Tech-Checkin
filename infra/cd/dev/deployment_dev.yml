@@ -36,9 +36,9 @@ spec:
             export ADMIN_PHONE_NUMBER="{{ .Data.data.ADMIN_PHONE_NUMBER }}"
             export LOGGING_LEVEL="{{ .Data.data.LOGGING_LEVEL }}"
           {{- end }}
-        vault.hashicorp.com/agent-inject-secret-almanac: 'dev/alamanc'
+        vault.hashicorp.com/agent-inject-secret-almanac: 'dev/almanac'
         vault.hashicorp.com/agent-inject-template-almanac: |
-          {{- with secret "dev/alamanc" -}}
+          {{- with secret "dev/almanac" -}}
             export ALMANAC_API_KEY="{{ .Data.data.almanac_api_key }}"
             export AZURE_DEVOPS_PERSONAL_ACCESS_TOKEN="{{ .Data.data.azure_devops_personal_access_token }}"
             export MICROSOFT_TEAMS_WEBHOOK_URL="{{ .Data.data.microsoft_teams_webhook_url }}"
