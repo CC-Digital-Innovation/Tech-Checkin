@@ -11,6 +11,7 @@ spec:
   template:
     metadata:
       annotations:
+        vault.hashicorp.com/agent-init-first: 'true'
         vault.hashicorp.com/agent-inject: 'true'
         vault.hashicorp.com/role: 'tech-checkin-dev'
         vault.hashicorp.com/agent-inject-secret-tech-checkin-dev: 'dev/tech-checkin'
