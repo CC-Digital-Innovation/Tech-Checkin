@@ -41,6 +41,8 @@ def send_24_hour_checks(smartsheet_controller: SmartsheetController, report_id: 
     report = smartsheet_controller.get_report(report_id, geolocator)  # updated report
     # filter rows by tomorrow's date and unfinished checks
     tomorrow = date.today() + timedelta(days=1)
+    apps_to_send=0
+    texts_sent=0
     for row in report.rows:
         if report.get_24_hour_checkbox(row):
             continue  # already checked
@@ -53,6 +55,7 @@ def send_24_hour_checks(smartsheet_controller: SmartsheetController, report_id: 
             logger.error(error_msg)
             continue
         if tomorrow == appt_date:
+            apps_to_send += 1
             try:
                 tech_details = report.get_tech_details(row)
             except ValueError as e:
@@ -68,9 +71,11 @@ def send_24_hour_checks(smartsheet_controller: SmartsheetController, report_id: 
                 resp = sms_controller.send_text(send_to,
                                                 'Please confirm the details of your appointment tomorrow at '
                                                 f'{tech_details.appt_datetime.strftime(DATETIME_SMS_FORMAT)}: {url}')
+                texts_sent += 1
             except RuntimeError as e:
                 logger.error(f'Could not send 24 hour pre-text for row #{row.row_number}: "{e}"')
             logger.debug(resp)
+    logger.info(f'Sent {texts_sent}/{apps_to_send} 24 hour pre-calls.')
 
 
 def send_24_hour_check(id: str, report: AllTrackerReport, form_url: str, sms_controller: SMSBaseController):
