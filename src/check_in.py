@@ -22,7 +22,7 @@ TIME_FORM_FORMAT = '%H%M'
 def almanac_webhook(message: str):
     response = requests.post(
         'http://0.0.0.0:8444/ms_teams',
-        json={'error_message': {'text': message}},
+        json={'text': message},
         headers={'API-Key-Name': os.getenv('ALMANAC_API_KEY')}
     )
     print(response.text)
