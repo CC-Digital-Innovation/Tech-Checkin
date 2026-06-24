@@ -1,3 +1,4 @@
+import os
 import urllib.parse
 from datetime import date, datetime, timedelta
 from typing import NamedTuple
@@ -19,7 +20,11 @@ TIME_FORM_FORMAT = '%H%M'
 
 
 def almanac_webhook(message: str):
-    response = requests.post('http://0.0.0.0:8444/ms_teams', data={'error_message': message})
+    response = requests.post(
+        'http://0.0.0.0:8444/ms_teams',
+        data={'error_message': message},
+        headers={'API-Key-Name': os.getenv('ALMANAC_API_KEY')}
+    )
     print(response.text)
 
 
