@@ -55,7 +55,7 @@ spec:
       imagePullSecrets:
         - name: tech-checkin-registry-secret
       containers:
-        - image: harbor.pscp-css.support/library/tech-checkin-dev:0.0.45
+        - image: harbor.pscp-css.support/library/tech-checkin-dev:0.0.46
           imagePullPolicy: Always
           name: tech-checkin-dev
           command: ['sh', '-c', 'source /vault/secrets/tech-checkin-dev && source /vault/secrets/almanac && uvicorn CheckinAPI:checkin --host 0.0.0.0 --port 8000']
