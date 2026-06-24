@@ -47,5 +47,5 @@ class TextbeltController(SMSBaseController):
         resp.raise_for_status()
         resp_json = resp.json()
         if not resp_json['success']:
-            raise RuntimeError(resp_json['error'])
+            raise RuntimeError(resp.text)
         return resp_json
