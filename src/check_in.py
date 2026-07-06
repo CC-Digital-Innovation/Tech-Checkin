@@ -74,7 +74,7 @@ def send_24_hour_checks(smartsheet_controller: SmartsheetController, report_id: 
                 texts_sent += 1
             except RuntimeError as e:
                 logger.error(f'Could not send 24 hour pre-text for row #{row.row_number}: "{e}"')
-                return
+                continue
             logger.debug(resp)
     logger.info(f'Sent {texts_sent}/{apps_to_send} 24 hour pre-calls.')
 
