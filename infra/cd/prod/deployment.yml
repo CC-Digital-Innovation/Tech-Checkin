@@ -47,7 +47,7 @@ spec:
       containers:
         - image: harbor.pscp-css.support/library/tech-checkin:0.0.43
           name: tech-checkin
-          command: ['sh', '-c', 'source /vault/secrets/tech-checkin && uvicorn CheckinAPI:checkin --host 0.0.0.0 --port 8000']
+          command: ['sh', '-c', 'source /vault/secrets/tech-checkin && python -m uvicorn CheckinAPI:checkin --host 0.0.0.0 --port 8000']
           ports:
             - containerPort: 8000
           securityContext:
@@ -56,6 +56,8 @@ spec:
               drop:
                 - ALL
             readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             limits:
               cpu: 500m

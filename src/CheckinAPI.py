@@ -29,6 +29,7 @@ API_KEY = os.getenv('API_KEY')
 # logging config
 LOGGING_LEVEL = os.getenv('LOGGING_LEVEL', 'INFO')
 logger.configure(handlers=[{'sink': sys.stderr, 'level': LOGGING_LEVEL}])
+logger.add(sink=check_in.almanac_webhook, level='ERROR', format='{message}')
 
 # initalize geolocator
 GEONAMES_USER = os.environ['GEONAMES_USER']

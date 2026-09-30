@@ -1,17 +1,4 @@
 resources:
-  # resource for reconfiguring pipeline
-  # - name: repo-pipeline
-  #   type: git
-  #   icon: github
-  #   source:
-  #     uri: ((repo))
-  #     branch: ((branch))
-  #     username: ((git.username))
-  #     password: ((git.password))
-  #     paths:
-  #       - pipeline.yml
-  #       - infra/ci/dev/vars_dev.yml
-  #       - infra/ci/prod/vars.yml
   # resource for triggering pipeline; read-only
   - name: repo-read
     type: git
@@ -26,6 +13,7 @@ resources:
         - ((project_root))  # remove if no project root directory
         - Dockerfile
         - requirements.txt
+  
   # resource for writing to repository; write-only to avoid retriggering pipeline
   - name: bump-repo
     type: git
@@ -35,6 +23,7 @@ resources:
       branch: ((branch))
       username: ((git.username))
       password: ((git.password))
+  
   # resource of where to push image
   - name: registry
     type: registry-image
@@ -42,6 +31,7 @@ resources:
       repository: ((harbor.repository))/((image))
       username: ((harbor.username))
       password: ((harbor.password))
+  
   # resource for versioning
   - name: version
     type: semver
@@ -52,55 +42,13 @@ resources:
       branch: ((branch))
       private_key: ((git.private_key))
       file: version
-  # resource to send to slack
-  # - name: notifier
-  #   type: slack-alert
-  #   icon: slack
-  #   source:
-  #     url: ((slack.webhook))
 
-# add slack resource
-resource_types:
-  - name: slack-alert
-    type: registry-image
-    source:
-      repository: arbourd/concourse-slack-alert-resource
 
 jobs:
-  # - name: set-pipeline
-  #   plan:
-  #     - get: repo-pipeline
-  #       trigger: true
-  #     - put: notifier
-  #       params:
-  #         alert_type: started
-  #     - set_pipeline: ((pipeline))
-  #       file: repo-pipeline/pipeline.yml
-  #       var_files:
-  #         - repo-pipeline/vars_dev.yml
-  #     - put: notifier
-  #       params:
-  #         alert_type: success
-  #   on_failure:
-  #     put: notifier
-  #     params:
-  #       alert_type: failed
-  #   on_abort:
-  #     put: notifier
-  #     params:
-  #       alert_type: aborted
-  #   on_error:
-  #     put: notifier
-  #     params:
-  #       alert_type: errored
-
   - name: build-and-push-image
     plan:
       - get: repo-read
         trigger: true
-      # # - put: notifier
-      #   params:
-      #     alert_type: started
       - task: build-task-image
         privileged: true
         config:
@@ -175,18 +123,3 @@ jobs:
       - put: version
         params:
           file: version/version
-    #   - put: notifier
-    #     params:
-    #       alert_type: success
-    # on_failure:
-    #   put: notifier
-    #   params:
-    #     alert_type: failed
-    # on_abort:
-    #   put: notifier
-    #   params:
-    #     alert_type: aborted
-    # on_error:
-    #   put: notifier
-    #   params:
-    #     alert_type: errored
