@@ -1,9 +1,11 @@
+import os
 import urllib.parse
 from datetime import date, datetime, timedelta
 from typing import NamedTuple
 
 import phonenumbers
 import pytz
+import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from geopy import GeoNames
 from loguru import logger
@@ -15,6 +17,16 @@ from sms import SMSBaseController, TextbeltController
 
 DATETIME_SMS_FORMAT = '%a %b, %d %Y @ %I:%M%p'
 TIME_FORM_FORMAT = '%H%M'
+
+
+def almanac_webhook(message: str):
+    response = requests.post(
+        'http://0.0.0.0:8444/ms_teams',
+        json={'text': message},
+        headers={'API-Key-Name': os.getenv('ALMANAC_API_KEY')}
+    )
+    print(response.text)
+
 
 def build_form(url: str, tech_details: TechDetails, sms_controller: SMSBaseController | None = None):
     params = {
