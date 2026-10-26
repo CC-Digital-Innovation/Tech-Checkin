@@ -21,8 +21,8 @@ LABEL org.opencontainers.image.authors="Anthony Farina"
 
 WORKDIR /app
 
-# Patch alpine packages.
-RUN apk update && apk upgrade --no-cache
+# Patch alpine packages and install necessary dependencies.
+RUN apk update && apk upgrade --no-cache && apk add --no-cache tzdata
 
 # Set environment variables to reduce writing to disk and improve performance.
 ENV PYTHONDONTWRITEBYTECODE=1 \
